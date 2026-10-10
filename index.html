@@ -7,7 +7,7 @@
 <meta name="description" content="颜睿卿（Qing）的个人主页 —— 计算机科学本科生 / 技术创作者，附 AI 数字分身对话。" />
 <!-- 安全策略：只允许本站资源；样式/字体走自托管镜像；后端代理经 https 通信 -->
 <meta http-equiv="Content-Security-Policy"
-      content="default-src 'self'; script-src 'self'; style-src 'self' https://miaoda.feishu.cn; font-src https://miaoda.feishu.cn https://sf3-scmcdn-cn.feishucdn.com; img-src 'self' data:; connect-src 'self' https: http://localhost:*; object-src 'none'; base-uri 'self'" />
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://miaoda.feishu.cn; font-src https://miaoda.feishu.cn https://sf3-scmcdn-cn.feishucdn.com; img-src 'self' data:; connect-src 'self' https: http://localhost:*; object-src 'none'; base-uri 'self'" />
 <!-- 社交分享元信息 -->
 <meta property="og:title" content="颜睿卿 Qing · 在代码与人文交汇处" />
 <meta property="og:type" content="website" />
@@ -102,18 +102,32 @@
           <p class="section-label group-head">自留地</p>
           <div class="hobby-grid">
             <button type="button" class="hobby-card hobby-card-reading" data-hobby="reading" aria-haspopup="dialog">
+              <img class="hobby-bg" src="assets/hobby-reading.jpg" alt="" aria-hidden="true" />
+              <span class="hobby-mask" aria-hidden="true"></span>
               <span class="hobby-name">文学与阅读</span>
               <span class="hobby-arrow" aria-hidden="true">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M9 18l6-6-6-6" />
                 </svg>
               </span>
+              <span class="hobby-edit" data-edit="reading" aria-label="修改背景图">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+                </svg>
+              </span>
             </button>
             <button type="button" class="hobby-card hobby-card-photo" data-hobby="photo" aria-haspopup="dialog">
+              <img class="hobby-bg" src="assets/hobby-photo.jpg" alt="" aria-hidden="true" />
+              <span class="hobby-mask" aria-hidden="true"></span>
               <span class="hobby-name">摄影与生活</span>
               <span class="hobby-arrow" aria-hidden="true">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M9 18l6-6-6-6" />
+                </svg>
+              </span>
+              <span class="hobby-edit" data-edit="photo" aria-label="修改背景图">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
                 </svg>
               </span>
             </button>
@@ -200,7 +214,6 @@
       <header class="modal-header">
         <div>
           <h2 class="modal-title">文学与阅读</h2>
-          <p class="modal-sub">点封面传书籍图片 · 记下书名、作者、感想与打动你的话</p>
         </div>
         <button type="button" class="modal-close" data-close aria-label="关闭">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -209,7 +222,6 @@
         </button>
       </header>
       <div class="modal-body">
-        <div id="hobby-sync-books" class="hobby-sync" data-show="false"></div>
         <div class="book-scroll">
           <div id="book-list" class="book-list"></div>
           <button type="button" id="add-book-btn" class="add-card" title="添加一本书" aria-label="添加一本书">
@@ -220,7 +232,6 @@
         </div>
       </div>
       <footer class="modal-footer">
-        <p class="footer-hint">数据存云端 · 修改需写入口令 · 点「导出数据」可备份</p>
         <button type="button" id="export-books" class="btn-ghost-small">导出数据</button>
       </footer>
     </div>
@@ -232,7 +243,6 @@
       <header class="modal-header">
         <div>
           <h2 class="modal-title">摄影与生活</h2>
-          <p class="modal-sub">点 + 或拖拽照片上传 · 每一张都是当下的感觉</p>
         </div>
         <button type="button" class="modal-close" data-close aria-label="关闭">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -241,7 +251,6 @@
         </button>
       </header>
       <div class="modal-body">
-        <div id="hobby-sync-photos" class="hobby-sync" data-show="false"></div>
         <input type="file" id="photo-input" accept="image/*" multiple hidden />
         <div id="photo-grid" class="photo-grid">
           <button type="button" id="add-photo-btn" class="add-card photo-add-card" title="上传照片" aria-label="上传照片">
@@ -252,7 +261,6 @@
         </div>
       </div>
       <footer class="modal-footer">
-        <p class="footer-hint">点照片可看大图 · 悬停/长按显示删除 · 图片自动压缩</p>
         <button type="button" id="export-photos" class="btn-ghost-small">导出数据</button>
       </footer>
     </div>
