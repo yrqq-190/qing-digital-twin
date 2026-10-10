@@ -5,6 +5,7 @@
  * - 打开页面：先渲染本地缓存，再向云端拉最新数据覆盖；
  * - 任何修改：自动保存到云端（写入口令），成功后同步本地缓存；
  * - 云端不可达：修改仍保留在本地缓存，下次联网会再尝试同步。
+ * - 导出数据：下载 JSON 备份（本地文件），可随时恢复。
  */
 import { CONFIG } from './config.js';
 
@@ -76,7 +77,6 @@ function compressImage(file, maxDim, quality = 0.85) {
         canvas.width = w;
         canvas.height = h;
         const ctx = canvas.getContext('2d');
-        // 透明 PNG 先铺白底，避免 JPEG 压缩后变黑
         ctx.fillStyle = '#FFFFFF';
         ctx.fillRect(0, 0, w, h);
         ctx.drawImage(img, 0, 0, w, h);
@@ -86,6 +86,19 @@ function compressImage(file, maxDim, quality = 0.85) {
     };
     reader.readAsDataURL(file);
   });
+}
+
+/** 下载 JSON 备份文件 */
+function downloadJson(filename, data) {
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
 }
 
 /* ================= 云端读写 ================= */
@@ -157,26 +170,38 @@ function render(kind) {
   else renderPhotos();
 }
 
+/* ---- 书籍：横向卡片流 ---- */
+
 function renderBooks() {
   const list = $('#book-list');
   if (!list) return;
   list.innerHTML = '';
 
   if (books.length === 0) {
-    list.innerHTML = '<p class="empty-hint">还没有书籍，点下方「添加一本书」开始记录吧</p>';
+    list.innerHTML = '<p class="empty-hint">还没有书籍，点右侧「＋」添加第一本</p>';
     return;
   }
 
   books.forEach((book) => {
-    const item = document.createElement('div');
+    const item = document.createElement('article');
     item.className = 'book-item';
     item.dataset.id = book.id;
 
     const coverHtml = book.cover
       ? `<img src="${book.cover}" alt="封面" />`
-      : '<span class="book-cover-placeholder">书</span>';
+      : `<span class="book-cover-placeholder">
+           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" /><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" /></svg>
+           上传封面
+         </span>`;
+
+    const quotes = String(book.quote || '').split('\n').map((s) => s.trim()).filter(Boolean);
 
     item.innerHTML = `
+      <button class="book-delete" title="删除这本书" aria-label="删除">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M18 6L6 18" /><path d="M6 6l12 12" />
+        </svg>
+      </button>
       <label class="book-cover" title="点击上传封面">
         ${coverHtml}
         <input type="file" accept="image/*" class="cover-input" hidden />
@@ -184,30 +209,19 @@ function renderBooks() {
       <div class="book-fields">
         <input class="book-title-input" placeholder="书名" value="${escapeHtml(book.title)}" />
         <input class="book-author-input" placeholder="作者" value="${escapeHtml(book.author)}" />
-        <textarea class="book-quote-input" placeholder="摘录打动你的一句话，或者写点感受…">${escapeHtml(book.quote)}</textarea>
       </div>
-      <button class="book-delete" title="删除这本书" aria-label="删除">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="M3 6h18" /><path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2" />
-          <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
-          <path d="M10 11v6" /><path d="M14 11v6" />
-        </svg>
-      </button>
+      <textarea class="book-thought-input" rows="2" placeholder="写点感想…">${escapeHtml(book.thought)}</textarea>
+      <div class="book-quotes">${quotes.length ? quotes.map((q) => `<div class="book-quote" title="双击编辑">${escapeHtml(q)}</div>`).join('') : ''}</div>
+      <button type="button" class="book-quote-add">＋ 金句</button>
     `;
 
-    // 封面上传
-    const coverLabel = item.querySelector('.book-cover');
+    /* 封面上传 */
     const coverInput = item.querySelector('.cover-input');
-    coverLabel.addEventListener('click', (e) => {
-      if (e.target === coverInput || e.target.closest('img')) return;
-      coverInput.click();
-    });
     coverInput.addEventListener('change', async (e) => {
       const file = e.target.files[0];
       if (!file) return;
       try {
-        const dataUrl = await compressImage(file, 480, 0.85);
-        book.cover = dataUrl;
+        book.cover = await compressImage(file, 480, 0.85);
         scheduleSave('books');
         renderBooks();
       } catch (err) {
@@ -216,7 +230,7 @@ function renderBooks() {
       e.target.value = '';
     });
 
-    // 点击已上传的封面 → 预览大图
+    /* 已上传封面的预览 */
     const coverImg = item.querySelector('.book-cover img');
     if (coverImg) {
       coverImg.addEventListener('click', (e) => {
@@ -225,7 +239,7 @@ function renderBooks() {
       });
     }
 
-    // 文本编辑
+    /* 书名 / 作者 / 感想 */
     const bindInput = (input, field) => {
       input.addEventListener('input', () => {
         book[field] = input.value;
@@ -234,9 +248,52 @@ function renderBooks() {
     };
     bindInput(item.querySelector('.book-title-input'), 'title');
     bindInput(item.querySelector('.book-author-input'), 'author');
-    bindInput(item.querySelector('.book-quote-input'), 'quote');
+    bindInput(item.querySelector('.book-thought-input'), 'thought');
 
-    // 删除
+    /* 金句：双击纸片进入编辑 */
+    const quotesBox = item.querySelector('.book-quotes');
+    if (quotesBox) {
+      $$('.book-quote', quotesBox).forEach((el) => {
+        el.addEventListener('dblclick', () => {
+          const idx = Array.from(quotesBox.children).indexOf(el);
+          const ta = document.createElement('textarea');
+          ta.className = 'book-quote-edit';
+          ta.value = quotes[idx] || '';
+          ta.rows = 2;
+          el.replaceWith(ta);
+          ta.focus();
+          ta.setSelectionRange(ta.value.length, ta.value.length);
+          const commit = () => {
+            quotes[idx] = ta.value.trim();
+            book.quote = quotes.join('\n');
+            scheduleSave('books');
+            renderBooks();
+          };
+          ta.addEventListener('blur', commit);
+          ta.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); ta.blur(); }
+            if (e.key === 'Escape') { ta.blur(); }
+          });
+        });
+      });
+    }
+
+    /* 添加金句 */
+    const addQuoteBtn = item.querySelector('.book-quote-add');
+    if (addQuoteBtn) {
+      addQuoteBtn.addEventListener('click', () => {
+        quotes.push('');
+        book.quote = quotes.join('\n');
+        renderBooks();
+        const lastCard = $('#book-list .book-item:last-child');
+        if (lastCard) {
+          const lastQuote = lastCard.querySelector('.book-quote:last-child');
+          if (lastQuote) lastQuote.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+        }
+      });
+    }
+
+    /* 删除 */
     item.querySelector('.book-delete').addEventListener('click', () => {
       if (!confirm('确定删除这本书吗？')) return;
       const idx = books.findIndex((b) => String(b.id) === String(book.id));
@@ -249,20 +306,17 @@ function renderBooks() {
   });
 }
 
+/* ---- 相册 ---- */
+
 function renderPhotos() {
   const grid = $('#photo-grid');
   if (!grid) return;
-  grid.innerHTML = '';
+  const addBtn = $('#add-photo-btn');
 
-  if (photos.length === 0) {
-    grid.innerHTML = '<p class="empty-hint">还没有照片，点上方区域上传第一张吧</p>';
-    return;
-  }
-
-  photos.forEach((p) => {
-    const item = document.createElement('div');
-    item.className = 'photo-item';
-    item.innerHTML = `
+  const items = photos.map((p) => {
+    const el = document.createElement('div');
+    el.className = 'photo-item';
+    el.innerHTML = `
       <img src="${p.src}" alt="生活照片" loading="lazy" />
       <button class="photo-delete" title="删除这张照片" aria-label="删除">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -270,8 +324,8 @@ function renderPhotos() {
         </svg>
       </button>
     `;
-    item.querySelector('img').addEventListener('click', () => showPreview(p.src));
-    item.querySelector('.photo-delete').addEventListener('click', (e) => {
+    el.querySelector('img').addEventListener('click', () => showPreview(p.src));
+    el.querySelector('.photo-delete').addEventListener('click', (e) => {
       e.stopPropagation();
       if (!confirm('删除这张照片？')) return;
       const idx = photos.findIndex((x) => x.id === p.id);
@@ -279,8 +333,17 @@ function renderPhotos() {
       scheduleSave('photos');
       renderPhotos();
     });
-    grid.appendChild(item);
+    return el;
   });
+
+  if (photos.length === 0) {
+    const empty = document.createElement('p');
+    empty.className = 'empty-hint';
+    empty.textContent = '还没有照片，点右侧「＋」上传第一张';
+    grid.replaceChildren(empty, addBtn);
+    return;
+  }
+  grid.replaceChildren(...items, addBtn);
 }
 
 /* ================= 保存（防抖） ================= */
@@ -366,7 +429,7 @@ async function handleFiles(files) {
 }
 
 const photoInput = $('#photo-input');
-const uploadZone = $('.upload-zone');
+$('#add-photo-btn')?.addEventListener('click', () => photoInput.click());
 
 if (photoInput) {
   photoInput.addEventListener('change', (e) => {
@@ -375,21 +438,22 @@ if (photoInput) {
   });
 }
 
-if (uploadZone) {
-  uploadZone.addEventListener('click', () => photoInput.click());
+/* 拖拽上传：拖到相册区域 */
+const photoGrid = $('#photo-grid');
+if (photoGrid) {
   ['dragenter', 'dragover'].forEach((evt) => {
-    uploadZone.addEventListener(evt, (e) => {
+    photoGrid.addEventListener(evt, (e) => {
       e.preventDefault();
-      uploadZone.classList.add('dragover');
+      photoGrid.classList.add('dragover');
     });
   });
   ['dragleave', 'drop'].forEach((evt) => {
-    uploadZone.addEventListener(evt, (e) => {
+    photoGrid.addEventListener(evt, (e) => {
       e.preventDefault();
-      uploadZone.classList.remove('dragover');
+      photoGrid.classList.remove('dragover');
     });
   });
-  uploadZone.addEventListener('drop', (e) => {
+  photoGrid.addEventListener('drop', (e) => {
     handleFiles(e.dataTransfer.files);
   });
 }
@@ -397,27 +461,49 @@ if (uploadZone) {
 /* ================= 添加书籍 ================= */
 
 $('#add-book-btn')?.addEventListener('click', () => {
-  books.push({ id: Date.now(), title: '', author: '', quote: '', cover: '' });
+  books.push({ id: Date.now(), title: '', author: '', thought: '', quote: '', cover: '' });
   renderBooks();
   scheduleSave('books');
-  const last = $('#book-list .book-item:last-child');
-  if (last) last.querySelector('.book-title-input').focus();
+  const scroll = $('.book-scroll');
+  if (scroll) {
+    requestAnimationFrame(() => {
+      scroll.scrollTo({ left: scroll.scrollWidth, behavior: 'smooth' });
+    });
+  }
+});
+
+/* ================= 导出数据（本地备份） ================= */
+
+$('#export-books')?.addEventListener('click', () => {
+  if (books.length === 0) {
+    showSync('books', '还没有书籍可导出');
+    return;
+  }
+  downloadJson('qing-hobby-books.json', { kind: 'books', exportedAt: new Date().toISOString(), data: books });
+  showSync('books', '已导出书籍备份（JSON）');
+});
+
+$('#export-photos')?.addEventListener('click', () => {
+  if (photos.length === 0) {
+    showSync('photos', '还没有照片可导出');
+    return;
+  }
+  downloadJson('qing-hobby-photos.json', { kind: 'photos', exportedAt: new Date().toISOString(), data: photos });
+  showSync('photos', '已导出照片备份（JSON）');
 });
 
 /* ================= 初始化 ================= */
 
-// 状态：内存数组（含云端与缓存合并后的数据）
 const books = readCache(STORE_KEYS.books, [
-  { id: 1, title: '平面国', author: '埃德温·A·艾勃特', quote: '向上，而不是向北。', cover: '' },
-  { id: 2, title: '我弥留之际', author: '威廉·福克纳', quote: '福克纳用又怪又准的比喻、跳跃脱轨的联想，拼凑出一场荒诞到极致的送葬之旅。', cover: '' },
-  { id: 3, title: '译边草', author: '周克希', quote: '过度忠于原文反而不好。要想象自己是作者，仔细揣度，然后用中文表达出来。', cover: '' }
+  { id: 1, title: '平面国', author: '埃德温·A·艾勃特', thought: '一本讲维度与偏见的几何寓言，读完再看世界会不一样。', quote: '向上，而不是向北。', cover: '' },
+  { id: 2, title: '我弥留之际', author: '威廉·福克纳', thought: '多视角叙事像把真相切成碎片，读者自己拼。', quote: '福克纳用又怪又准的比喻、跳跃脱轨的联想，拼凑出一场荒诞到极致的送葬之旅。', cover: '' },
+  { id: 3, title: '译边草', author: '周克希', thought: '翻译是把作者的语言变成自己的语言。', quote: '过度忠于原文反而不好。要想象自己是作者，仔细揣度，然后用中文表达出来。', cover: '' }
 ]);
 const photos = readCache(STORE_KEYS.photos, []);
 
 renderBooks();
 renderPhotos();
 
-// 云端数据（若可用）覆盖缓存
 if (API_BASE) {
   loadKind('books', books);
   loadKind('photos', photos);

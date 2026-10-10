@@ -138,14 +138,16 @@ BACKEND_URL: 'https://your-worker.xxx.workers.dev',
 
 ## 自留地模块（文学与阅读 / 摄影与生活）
 
-左侧「我的自留地」两个入口卡片，点击打开全屏模态框：
+左侧「自留地」两个入口卡片（带背景图，点击打开全屏模态框）：
 
-- **文学与阅读**：点封面传书籍图片、填书名/作者/好句，可随时增删；
-- **摄影与生活**：相册，点击/拖拽上传照片，自动压缩后存入云端。
+- **文学与阅读**：横向滑动卡片流，点封面传书籍图片、填书名/作者/感想，「金句」以撕纸质感纸片呈现（双击纸片可编辑，可添加多句）；
+- **摄影与生活**：相册，点「＋」或拖拽照片上传，自动压缩后存入云端，点照片看大图、悬停显示删除。
 
 存储：数据写入 Cloudflare KV（`HOBBY_KV` 命名空间），任何设备打开页面都能看到，无需手动导出或改代码；localStorage 仅作离线缓存，云端不可达时仍可浏览本地快照。
 
 - API：`GET/POST /api/books`、`GET/POST /api/photos`（Worker 内 `handleHobby`）；
 - 写入口令：POST 需 `Authorization: Bearer <HOBBY_TOKEN>`（Worker secret，防止访客往你的相册写入内容；读取不需要口令）；
 - 图片处理：前端 canvas 压缩（书籍封面最长边 480px、相册 1440px，JPEG），单张源文件上限 8MB，请求体上限 24MB；
+- 备份：模态框底部「导出数据」可下载 JSON 备份（本地文件，随时可恢复）；
+- 入口卡片背景图：`assets/hobby-reading.jpg`、`assets/hobby-photo.jpg`（自托管，走 `img-src 'self'`）；
 - 前端模块：`js/hobby.js`（ES Module），样式 `css/hobby.css`，均通过现有 CSP `'self'` 约束。

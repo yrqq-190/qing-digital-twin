@@ -1,48 +1,69 @@
 /* ============================================================================
    自留地模块：文学与阅读 / 摄影与生活
-   设计语言与 style.css 保持一致：森林绿 / 陶土色 / 纸张米白
+   设计语言：极简主义 + 日系杂志排版，森林绿 / 纸张白 / 陶土色
    ========================================================================== */
 
-/* ---------- 入口卡片 ---------- */
-.hobby-section { margin-top: 28px; }
+/* ---------- 入口卡片（正方形 · 背景图） ---------- */
+.hobby-section { margin-top: 26px; }
 
 .hobby-grid {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
   margin-top: 12px;
 }
 
 .hobby-card {
-  width: 100%;
+  position: relative;
+  aspect-ratio: 1 / 1;
   display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 12px 14px;
-  background: var(--white);
-  border: 1px solid var(--line);
-  border-left: 3px solid var(--forest);
-  border-radius: 10px;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: flex-start;
+  padding: 12px;
+  border: none;
+  border-radius: 14px;
   cursor: pointer;
-  color: var(--ink);
+  color: #fff;
   text-align: left;
-  font-size: 13.5px;
-  transition: all .25s ease;
+  background-size: cover;
+  background-position: center;
+  overflow: hidden;
+  transition: transform .25s ease, box-shadow .25s ease;
 }
 
-.hobby-card svg { flex-shrink: 0; color: var(--forest); }
+.hobby-card-reading { background-image: url('../assets/hobby-reading.jpg'); }
+.hobby-card-photo   { background-image: url('../assets/hobby-photo.jpg'); }
 
-.hobby-card .hobby-name { flex: 1; font-weight: 500; }
-
-.hobby-card .hobby-arrow { color: var(--ink-faint); transition: transform .25s ease, color .25s ease; }
+/* 半透明深色遮罩：保证文字可读，同时让图片透出质感 */
+.hobby-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, rgba(31, 36, 33, .55) 0%, rgba(31, 36, 33, .12) 45%, rgba(31, 36, 33, 0) 70%);
+}
 
 .hobby-card:hover {
-  border-left-color: var(--clay);
-  background: var(--forest-soft);
-  transform: translateX(2px);
+  transform: translateY(-2px);
+  box-shadow: 0 10px 26px -14px rgba(31, 36, 33, .45);
 }
 
-.hobby-card:hover .hobby-arrow { transform: translateX(2px); color: var(--clay-dark); }
+.hobby-name {
+  position: relative;
+  font-size: 13.5px;
+  font-weight: 500;
+  letter-spacing: .06em;
+}
+
+.hobby-arrow {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  color: rgba(255, 255, 255, .82);
+  transition: transform .25s ease;
+}
+
+.hobby-card:hover .hobby-arrow { transform: translateX(3px); }
 
 /* ---------- 模态框骨架 ---------- */
 .hobby-modal {
@@ -72,7 +93,7 @@
   background: var(--white);
   border-radius: var(--radius-card);
   width: 100%;
-  max-width: 640px;
+  max-width: 680px;
   max-height: 88vh;
   display: flex;
   flex-direction: column;
@@ -80,7 +101,7 @@
   animation: hobby-panelIn .3s cubic-bezier(.22, .61, .36, 1);
 }
 
-.modal-panel-wide { max-width: 860px; }
+.modal-panel-wide { max-width: 920px; }
 
 @keyframes hobby-panelIn {
   from { opacity: 0; transform: translateY(12px) scale(.98); }
@@ -139,42 +160,121 @@
 
 .footer-hint { margin: 0; font-size: 11.5px; color: var(--ink-soft); line-height: 1.6; }
 
-/* ---------- 书籍列表 ---------- */
-.book-list { display: flex; flex-direction: column; gap: 18px; }
-
-.book-item {
-  display: grid;
-  grid-template-columns: 92px 1fr auto;
-  gap: 16px;
-  align-items: start;
-  padding-bottom: 18px;
-  border-bottom: 1px solid var(--line);
+.btn-ghost-small {
+  flex-shrink: 0;
+  font-size: 12px;
+  padding: 7px 14px;
+  border: 1px solid var(--line);
+  background: #fff;
+  border-radius: 9999px;
+  cursor: pointer;
+  color: var(--ink-soft);
+  transition: all .2s ease;
 }
 
-.book-item:last-child { border-bottom: none; padding-bottom: 0; }
+.btn-ghost-small:hover { border-color: var(--forest); color: var(--forest); }
 
+/* ---------- 文学：横向滑动卡片流 ---------- */
+.book-scroll {
+  display: flex;
+  gap: 18px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 10px;
+  scrollbar-width: none;          /* Firefox 隐藏滚动条 */
+}
+
+.book-scroll::-webkit-scrollbar { display: none; }  /* WebKit 隐藏滚动条 */
+
+.book-list {
+  display: flex;
+  gap: 18px;
+  flex-shrink: 0;
+}
+
+/* 书籍卡片 */
+.book-item {
+  position: relative;
+  width: 268px;
+  flex-shrink: 0;
+  scroll-snap-align: start;
+  background: var(--white);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  transition: box-shadow .25s ease;
+}
+
+.book-item:hover { box-shadow: 0 12px 30px -18px rgba(31, 36, 33, .35); }
+
+/* 删除按钮：默认低透明，hover 完全显示 */
+.book-delete {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  z-index: 2;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(31, 36, 33, .55);
+  color: #fff;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  opacity: 0;
+  transition: opacity .2s ease, background .2s ease;
+}
+
+.book-item:hover .book-delete,
+.book-delete:focus-visible { opacity: 1; }
+
+.book-delete:hover { background: rgba(184, 92, 74, .85); }
+
+/* 封面：160px，上传前浅色占位 */
 .book-cover {
-  width: 92px;
-  height: 128px;
+  display: block;
+  position: relative;
+  height: 160px;
   border-radius: 8px;
   overflow: hidden;
   background: var(--forest-soft);
-  display: grid;
-  place-items: center;
   cursor: pointer;
-  position: relative;
   transition: filter .2s ease;
 }
 
-.book-cover:hover { filter: brightness(.94); }
+.book-cover:hover { filter: brightness(.96); }
 
-.book-cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.book-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
 
-.book-cover-placeholder { font-size: 20px; color: var(--forest); opacity: .45; }
+.book-cover-placeholder {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  color: var(--ink-faint);
+  font-size: 11px;
+  letter-spacing: .08em;
+}
+
+.book-cover-placeholder svg { color: rgba(74, 110, 81, .4); }
 
 .book-cover input { display: none; }
 
-.book-fields { display: flex; flex-direction: column; gap: 8px; }
+/* 书名（衬线加粗）+ 作者（浅灰小字） */
+.book-fields { display: flex; flex-direction: column; gap: 2px; }
 
 .book-title-input,
 .book-author-input {
@@ -186,95 +286,145 @@
   padding: 0;
 }
 
-.book-title-input { font-size: 15px; font-weight: 600; }
-.book-author-input { font-size: 12.5px; color: var(--ink-soft); }
+.book-title-input {
+  font-family: var(--font-serif);
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: .02em;
+}
+
+.book-author-input { font-size: 12px; color: var(--ink-soft); }
 
 .book-title-input::placeholder,
 .book-author-input::placeholder { color: var(--ink-faint); }
 
-.book-quote-input {
+/* 感想：小字、无框 */
+.book-thought-input {
   width: 100%;
-  min-height: 54px;
-  background: #FAFAF7;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  padding: 10px 12px;
-  font-size: 13px;
-  line-height: 1.8;
-  font-family: inherit;
-  color: var(--ink);
-  resize: vertical;
-  outline: none;
-  transition: border-color .2s ease;
-}
-
-.book-quote-input:focus { border-color: rgba(74, 110, 81, .5); }
-.book-quote-input::placeholder { color: var(--ink-faint); }
-
-.book-delete {
   background: transparent;
   border: none;
-  cursor: pointer;
-  color: var(--ink-faint);
-  padding: 6px;
-  border-radius: 6px;
-  display: grid;
-  place-items: center;
-  transition: color .2s ease, background .2s ease;
-}
-
-.book-delete:hover { color: #B85C4A; background: rgba(184, 92, 74, .08); }
-
-.add-btn {
-  width: 100%;
-  margin-top: 20px;
-  padding: 12px;
-  border: 1px dashed var(--line);
-  background: transparent;
-  border-radius: 10px;
-  cursor: pointer;
-  font-size: 13px;
+  outline: none;
+  resize: none;
+  font-family: inherit;
+  font-size: 12.5px;
+  line-height: 1.7;
   color: var(--ink-soft);
-  transition: all .2s ease;
+  padding: 0;
+  min-height: 40px;
 }
 
-.add-btn:hover {
-  border-color: var(--forest);
-  color: var(--forest);
-  background: var(--forest-soft);
-}
+.book-thought-input::placeholder { color: var(--ink-faint); }
 
-/* ---------- 相册 ---------- */
-.upload-zone {
+/* ---------- 金句纸片（核心设计） ---------- */
+.book-quotes {
   display: flex;
   flex-direction: column;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.book-quote {
+  position: relative;
+  background: #F4F4F0;
+  border-radius: 2px;
+  box-shadow: 2px 4px 10px rgba(0, 0, 0, 0.06);
+  padding: 10px 12px;
+  font-family: var(--font-serif);
+  font-size: 12.5px;
+  line-height: 1.9;
+  letter-spacing: .04em;
+  color: var(--ink);
+  /* 撕纸边缘：轻微不规则多边形，模拟粗糙纸边 */
+  clip-path: polygon(
+    0.4% 0%,
+    99.6% 0.8%,
+    100% 32%,
+    99.2% 66%,
+    100% 99.2%,
+    42% 100%,
+    0.8% 99.6%,
+    0% 55%
+  );
+}
+
+/* 微弱纸纹噪点（SVG 纹理，低透明度） */
+.book-quote::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 2px;
+  opacity: .28;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E");
+  mix-blend-mode: multiply;
+}
+
+/* 金句编辑：双击纸片进入编辑态 */
+.book-quote-edit {
+  width: 100%;
+  background: #F4F4F0;
+  border: none;
+  outline: none;
+  resize: none;
+  font-family: var(--font-serif);
+  font-size: 12.5px;
+  line-height: 1.9;
+  letter-spacing: .04em;
+  color: var(--ink);
+  border-radius: 2px;
+  padding: 10px 12px;
+  box-shadow: 2px 4px 10px rgba(0, 0, 0, 0.06);
+  min-height: 44px;
+}
+
+.book-quote-add {
+  display: inline-flex;
   align-items: center;
-  justify-content: center;
-  padding: 34px 20px;
-  margin-bottom: 20px;
-  border: 1px dashed var(--line);
-  border-radius: 12px;
-  background: #FAFAF7;
+  gap: 4px;
+  align-self: flex-start;
+  border: none;
+  background: transparent;
+  color: var(--ink-faint);
+  font-size: 11px;
   cursor: pointer;
-  transition: all .22s ease;
+  padding: 2px 4px;
+  border-radius: 4px;
+  transition: color .2s ease;
 }
 
-.upload-zone:hover,
-.upload-zone.dragover {
-  border-color: var(--forest);
-  background: var(--forest-soft);
-  transform: scale(1.01);
+.book-quote-add:hover { color: var(--forest); }
+
+/* ---------- 极简 + 号添加卡片 ---------- */
+.add-card {
+  flex-shrink: 0;
+  width: 52px;
+  height: 52px;
+  align-self: center;
+  border-radius: 50%;
+  border: 1px solid rgba(74, 110, 81, .25);
+  background: rgba(74, 110, 81, .08);
+  color: rgba(74, 110, 81, .55);
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  transition: background .2s ease, color .2s ease, border-color .2s ease;
 }
 
-.upload-icon { color: var(--forest); margin-bottom: 8px; }
-.upload-text { font-size: 13px; color: var(--ink); margin-bottom: 4px; }
-.upload-hint { font-size: 11px; color: var(--ink-soft); }
+.add-card:hover {
+  background: rgba(74, 110, 81, .18);
+  color: var(--forest);
+  border-color: rgba(74, 110, 81, .4);
+}
 
+/* 相册网格 + 添加卡 */
 .photo-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
   gap: 10px;
+  align-items: start;
 }
+
+.photo-add-card { align-self: start; }
 
 .photo-item {
   aspect-ratio: 1 / 1;
@@ -325,20 +475,36 @@
 .img-preview img { max-width: 100%; max-height: 100%; border-radius: 8px; }
 
 /* 同步状态提示 */
-.hobby-sync { font-size: 12px; color: var(--ink-soft); padding: 10px 12px; border-radius: 8px; background: var(--forest-soft); margin-bottom: 14px; display: none; }
+.hobby-sync {
+  font-size: 12px;
+  color: var(--ink-soft);
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--forest-soft);
+  margin-bottom: 14px;
+  display: none;
+}
+
 .hobby-sync[data-show="true"] { display: block; }
 .hobby-sync.is-error { background: rgba(184, 92, 74, .10); }
 
 /* 空状态提示 */
 .empty-hint {
   text-align: center;
-  padding: 36px 0;
+  padding: 30px 12px;
   color: var(--ink-faint);
-  font-size: 13px;
+  font-size: 12.5px;
   margin: 0;
 }
 
+/* 相册空状态占满整行；拖拽上传高亮 */
 .photo-grid > .empty-hint { grid-column: 1 / -1; }
+
+.photo-grid.dragover {
+  outline: 2px dashed rgba(74, 110, 81, .45);
+  outline-offset: -6px;
+  border-radius: 10px;
+}
 
 /* ---------- 移动端适配 ---------- */
 @media (max-width: 640px) {
@@ -346,17 +512,17 @@
   .modal-body,
   .modal-footer { padding-left: 18px; padding-right: 18px; }
 
-  .book-item { grid-template-columns: 72px 1fr auto; gap: 12px; }
-  .book-cover { width: 72px; height: 100px; }
-
-  .photo-grid { grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 8px; }
-
-  /* 移动端表单字号 ≥ 16px：避免 iOS 聚焦时页面自动缩放 */
-  .book-title-input,
-  .book-author-input,
-  .book-quote-input { font-size: 16px; }
-
   .hobby-modal { padding: 0; }
   .modal-panel { max-height: 100vh; border-radius: 0; }
   .modal-footer { border-radius: 0; }
+
+  /* 横滑卡片在手机上略微收窄 */
+  .book-item { width: 240px; }
+
+  .book-cover { height: 150px; }
+
+  .photo-grid { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px; }
+
+  .hobby-grid { gap: 10px; }
+  .hobby-name { font-size: 12.5px; }
 }

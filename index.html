@@ -99,27 +99,23 @@
         </section>
         <!-- 自留地：文学与阅读 / 摄影与生活 -->
         <section class="hobby-section">
-          <p class="section-label group-head">我的自留地</p>
+          <p class="section-label group-head">自留地</p>
           <div class="hobby-grid">
-            <button type="button" class="hobby-card" data-hobby="reading" aria-haspopup="dialog">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
-                <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
-              </svg>
+            <button type="button" class="hobby-card hobby-card-reading" data-hobby="reading" aria-haspopup="dialog">
               <span class="hobby-name">文学与阅读</span>
-              <svg class="hobby-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <path d="M9 18l6-6-6-6" />
-              </svg>
+              <span class="hobby-arrow" aria-hidden="true">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M9 18l6-6-6-6" />
+                </svg>
+              </span>
             </button>
-            <button type="button" class="hobby-card" data-hobby="photo" aria-haspopup="dialog">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
-                <circle cx="12" cy="13" r="4" />
-              </svg>
+            <button type="button" class="hobby-card hobby-card-photo" data-hobby="photo" aria-haspopup="dialog">
               <span class="hobby-name">摄影与生活</span>
-              <svg class="hobby-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <path d="M9 18l6-6-6-6" />
-              </svg>
+              <span class="hobby-arrow" aria-hidden="true">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M9 18l6-6-6-6" />
+                </svg>
+              </span>
             </button>
           </div>
         </section>
@@ -200,11 +196,11 @@
   <!-- ================= 文学与阅读 模态框 ================= -->
   <div id="modal-reading" class="hobby-modal" aria-hidden="true" role="dialog" aria-modal="true">
     <div class="modal-backdrop" data-close></div>
-    <div class="modal-panel">
+    <div class="modal-panel modal-panel-wide">
       <header class="modal-header">
         <div>
           <h2 class="modal-title">文学与阅读</h2>
-          <p class="modal-sub">点封面传书籍图片 · 记下书名、作者和每一句打动你的话</p>
+          <p class="modal-sub">点封面传书籍图片 · 记下书名、作者、感想与打动你的话</p>
         </div>
         <button type="button" class="modal-close" data-close aria-label="关闭">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -214,11 +210,18 @@
       </header>
       <div class="modal-body">
         <div id="hobby-sync-books" class="hobby-sync" data-show="false"></div>
-        <div id="book-list" class="book-list"></div>
-        <button type="button" id="add-book-btn" class="add-btn">＋ 添加一本书</button>
+        <div class="book-scroll">
+          <div id="book-list" class="book-list"></div>
+          <button type="button" id="add-book-btn" class="add-card" title="添加一本书" aria-label="添加一本书">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M12 5v14" /><path d="M5 12l14 0" />
+            </svg>
+          </button>
+        </div>
       </div>
       <footer class="modal-footer">
-        <p class="footer-hint">数据存在云端，任何设备打开都能看到。上传改动需写入口令，首次使用会提示输入。</p>
+        <p class="footer-hint">数据存云端 · 修改需写入口令 · 点「导出数据」可备份</p>
+        <button type="button" id="export-books" class="btn-ghost-small">导出数据</button>
       </footer>
     </div>
   </div>
@@ -229,7 +232,7 @@
       <header class="modal-header">
         <div>
           <h2 class="modal-title">摄影与生活</h2>
-          <p class="modal-sub">点击上传照片 · 每一张都是当下的感觉</p>
+          <p class="modal-sub">点 + 或拖拽照片上传 · 每一张都是当下的感觉</p>
         </div>
         <button type="button" class="modal-close" data-close aria-label="关闭">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -239,20 +242,18 @@
       </header>
       <div class="modal-body">
         <div id="hobby-sync-photos" class="hobby-sync" data-show="false"></div>
-        <label class="upload-zone" for="photo-input">
-          <input type="file" id="photo-input" accept="image/*" multiple hidden />
-          <span class="upload-icon">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <path d="M12 5v14" /><path d="M5 12l7-7 7 7" />
+        <input type="file" id="photo-input" accept="image/*" multiple hidden />
+        <div id="photo-grid" class="photo-grid">
+          <button type="button" id="add-photo-btn" class="add-card photo-add-card" title="上传照片" aria-label="上传照片">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M12 5v14" /><path d="M5 12l14 0" />
             </svg>
-          </span>
-          <span class="upload-text">点击或拖动照片到这里</span>
-          <span class="upload-hint">图片会自动压缩后存入云端，单张建议不超过 8MB</span>
-        </label>
-        <div id="photo-grid" class="photo-grid"></div>
+          </button>
+        </div>
       </div>
       <footer class="modal-footer">
-        <p class="footer-hint">点照片可看大图 · 悬停/长按显示删除</p>
+        <p class="footer-hint">点照片可看大图 · 悬停/长按显示删除 · 图片自动压缩</p>
+        <button type="button" id="export-photos" class="btn-ghost-small">导出数据</button>
       </footer>
     </div>
   </div>
