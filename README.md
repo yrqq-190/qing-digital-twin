@@ -135,3 +135,17 @@ BACKEND_URL: 'https://your-worker.xxx.workers.dev',
 ## 演示模式说明
 
 未配置 `BACKEND_URL` 或后端不可达时，聊天区自动使用本地关键词匹配兜底回复（见 `js/persona.js` 的 `LOCAL_RULES`），状态栏会显示「演示模式」以保持诚实。
+
+## 自留地模块（文学与阅读 / 摄影与生活）
+
+左侧「我的自留地」两个入口卡片，点击打开全屏模态框：
+
+- **文学与阅读**：点封面传书籍图片、填书名/作者/好句，可随时增删；
+- **摄影与生活**：相册，点击/拖拽上传照片，自动压缩后存入云端。
+
+存储：数据写入 Cloudflare KV（`HOBBY_KV` 命名空间），任何设备打开页面都能看到，无需手动导出或改代码；localStorage 仅作离线缓存，云端不可达时仍可浏览本地快照。
+
+- API：`GET/POST /api/books`、`GET/POST /api/photos`（Worker 内 `handleHobby`）；
+- 写入口令：POST 需 `Authorization: Bearer <HOBBY_TOKEN>`（Worker secret，防止访客往你的相册写入内容；读取不需要口令）；
+- 图片处理：前端 canvas 压缩（书籍封面最长边 480px、相册 1440px，JPEG），单张源文件上限 8MB，请求体上限 24MB；
+- 前端模块：`js/hobby.js`（ES Module），样式 `css/hobby.css`，均通过现有 CSP `'self'` 约束。
