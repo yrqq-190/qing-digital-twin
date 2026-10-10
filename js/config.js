@@ -11,7 +11,7 @@ export const CONFIG = {
    * - 填写（如 https://your-worker.xxx.workers.dev）：接入真实大模型；
    *   若请求失败且 DEMO_FALLBACK 为 true，会自动回退到演示模式并提示用户。
    */
-  BACKEND_URL: '',
+  BACKEND_URL: 'https://qing-digital-twin-proxy.jh190181-217.workers.dev',
 
   /* 模型参数（前端仅作初始值，服务端会二次封顶，防止滥用） */
   MODEL: 'deepseek-chat',
