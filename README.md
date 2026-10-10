@@ -1,4 +1,4 @@
-# 小卿个人主页 · 数字分身（Digital Twin Chat）
+# 颜睿卿（Qing）个人主页 · 数字分身（Digital Twin Chat）
 
 一个「个人主页 + AI 数字分身对话」的课程作业项目。左侧是个人名片，右侧是可与访问者对话的 AI 数字分身。
 
@@ -74,7 +74,7 @@ npm start                   # 打开 http://localhost:3000
 cd qing-digital-twin
 git init
 git add .
-git commit -m "小卿个人主页 + 数字分身"
+git commit -m "颜睿卿（Qing）个人主页 + 数字分身"
 gh repo create qing-digital-twin --public --source . --push
 
 # 2. 开启 Pages（GitHub 网页端：Settings → Pages → Deploy from a branch → main / root）
