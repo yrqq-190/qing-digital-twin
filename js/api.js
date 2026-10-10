@@ -116,9 +116,19 @@ export async function callBackend(messages, { onToken, onDone, signal } = {}) {
     try {
       const json = JSON.parse(payload);
       if (json.error) throw new Error(json.error);
+      // 兼容两种流格式：
+      // 1) OpenAI 兼容格式：choices[0].delta.content（DeepSeek 等标准 SSE）
+      // 2) 简单直传格式：delta 为字符串
+      let delta = '';
       if (typeof json.delta === 'string') {
-        full += json.delta;
-        if (onToken) onToken(json.delta);
+        delta = json.delta;
+      } else if (json.choices && json.choices[0] && json.choices[0].delta) {
+        const d = json.choices[0].delta;
+        if (typeof d.content === 'string') delta = d.content;
+      }
+      if (delta) {
+        full += delta;
+        if (onToken) onToken(delta);
       }
     } catch (err) {
       throw new BackendError('parse', '流数据解析失败：' + err.message);
