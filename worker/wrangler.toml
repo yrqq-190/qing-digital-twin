@@ -8,6 +8,11 @@ name = "qing-digital-twin-proxy"
 main = "worker.js"
 compatibility_date = "2024-11-01"
 
+# 云端存储：书籍 / 相册数据（KV）
+[[kv_namespaces]]
+binding = "HOBBY_KV"
+id = "d82cfd289737440289d25dbb54a0f5af"
+
 [vars]
 MODEL = "deepseek-chat"
 DEEPSEEK_BASE_URL = "https://api.deepseek.com/v1/chat/completions"

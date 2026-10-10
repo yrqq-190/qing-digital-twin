@@ -159,6 +159,47 @@ async function handleChat(request, env) {
   }
 }
 
+/**
+ * 云端数据（书籍 / 相册）：KV 存储读写接口。
+ * - GET  /api/books  /api/photos  返回当前数据
+ * - POST /api/books  /api/photos  全量覆盖保存（需 Bearer 口令，防陌生人写入）
+ */
+async function handleHobby(request, env, kind) {
+  const cors = corsHeaders(env, request)['Access-Control-Allow-Origin'];
+
+  if (request.method === 'GET') {
+    const raw = await env.HOBBY_KV.get(kind).catch(() => null);
+    const data = raw ? JSON.parse(raw) : [];
+    return json({ ok: true, kind, data }, 200, cors);
+  }
+
+  if (request.method === 'POST') {
+    const auth = request.headers.get('Authorization') || '';
+    const expect = env.HOBBY_TOKEN || '';
+    if (!expect || auth !== `Bearer ${expect}`) {
+      return json({ error: '写入口令错误。' }, 401, cors);
+    }
+    const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
+    if (!checkRateLimit(ip, Number(env.RATE_LIMIT_PER_MIN || 30))) {
+      return json({ error: '请求过于频繁，请稍后再试。' }, 429, cors);
+    }
+    let body;
+    try {
+      const text = await request.text();
+      if (text.length > 24 * 1024 * 1024) throw new Error('payload_too_large');
+      body = JSON.parse(text);
+    } catch {
+      return json({ error: '请求体格式错误。' }, 400, cors);
+    }
+    const data = Array.isArray(body.data) ? body.data : null;
+    if (!data) return json({ error: 'data 必须是数组。' }, 400, cors);
+    await env.HOBBY_KV.put(kind, JSON.stringify(data));
+    return json({ ok: true, kind, count: data.length }, 200, cors);
+  }
+
+  return json({ error: 'not_found' }, 404, cors);
+}
+
 export default {
   async fetch(request, env) {
     if (request.method === 'OPTIONS') return handleOptions(request, env);
@@ -171,6 +212,12 @@ export default {
     }
     if (request.method === 'POST' && url.pathname === '/api/chat') {
       return handleChat(request, env);
+    }
+    if ((request.method === 'GET' || request.method === 'POST') && url.pathname === '/api/books') {
+      return handleHobby(request, env, 'books');
+    }
+    if ((request.method === 'GET' || request.method === 'POST') && url.pathname === '/api/photos') {
+      return handleHobby(request, env, 'photos');
     }
     return json({ error: 'not_found' }, 404, cors);
   }
