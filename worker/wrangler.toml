@@ -1,0 +1,19 @@
+# Cloudflare Worker 配置模板
+# 使用方法：
+#   1. wrangler login
+#   2. wrangler secret put DEEPSEEK_API_KEY   # 必填，填入你的 DeepSeek Key
+#   3. wrangler deploy
+# 注意：密钥只通过 secret 设置，永远不要写进本文件或提交到 Git。
+name = "qing-digital-twin-proxy"
+main = "worker.js"
+compatibility_date = "2024-11-01"
+
+[vars]
+MODEL = "deepseek-chat"
+DEEPSEEK_BASE_URL = "https://api.deepseek.com/v1/chat/completions"
+# 允许跨域的前端来源；"*" 表示任意来源（公开演示）。可改为你的 GitHub Pages 域名，如
+# ALLOWED_ORIGINS = "https://yrqq-190.github.io"
+ALLOWED_ORIGINS = "*"
+MAX_TURNS = 24
+MAX_CHARS_PER_MESSAGE = 2000
+RATE_LIMIT_PER_MIN = 30
