@@ -55,7 +55,7 @@ function applyCors(req, res) {
   let allow = '*';
   if (allowed[0] !== '*' && origin && allowed.includes(origin)) allow = origin;
   res.set('Access-Control-Allow-Origin', allow);
-  res.set('Access-Control-Allow-Methods', 'POST, GET, DELETE, OPTIONS');
+  res.set('Access-Control-Allow-Methods', 'POST, GET, PATCH, DELETE, OPTIONS');
   res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   res.set('Access-Control-Max-Age', '86400');
   res.set('Cache-Control', 'no-store');
@@ -298,6 +298,38 @@ app.delete('/api/messages', async (req, res) => {
   } catch (e) {
     console.error('messages delete error:', e && e.message);
     res.status(500).json({ error: `删除失败：${e && e.message}` });
+  }
+});
+
+app.patch('/api/messages', async (req, res) => {
+  if (!checkWriteAuth(req)) return res.status(401).json({ error: '写入口令错误。' });
+  const id = req.query.id;
+  if (!id) return res.status(400).json({ error: '缺少留言 id。' });
+  const body = req.body || {};
+  const patch = {};
+  if (body.name !== undefined) {
+    const n = String(body.name).trim().slice(0, 20);
+    if (!n) return res.status(400).json({ error: '名字不能为空。' });
+    patch.name = n;
+  }
+  if (body.content !== undefined) {
+    const c = String(body.content).trim().slice(0, 500);
+    if (!c) return res.status(400).json({ error: '内容不能为空。' });
+    patch.content = c;
+  }
+  if (body.visibility !== undefined) {
+    patch.visibility = body.visibility === 'private' ? 'private' : 'public';
+  }
+  if (!Object.keys(patch).length) return res.status(400).json({ error: '没有可修改的内容。' });
+  try {
+    const res2 = await db.collection(MSG_COLLECTION).where({ id }).get();
+    const doc = res2.data && res2.data[0];
+    if (!doc) return res.status(404).json({ error: '留言不存在。' });
+    await db.collection(MSG_COLLECTION).doc(doc._id).update(patch);
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('messages patch error:', e && e.message);
+    res.status(500).json({ error: `修改失败：${e && e.message}` });
   }
 });
 

@@ -243,10 +243,21 @@
   display: block;
 }
 
-.visit-del {
+.visit-ops {
   position: absolute;
   top: 12px;
   right: 0;
+  display: flex;
+  gap: 6px;
+  opacity: 0;
+  transition: opacity .2s ease;
+}
+
+.visit-card:hover .visit-ops,
+.visit-ops:focus-within { opacity: 1; }
+
+.visit-del,
+.visit-edit {
   width: 26px;
   height: 26px;
   border-radius: 50%;
@@ -256,14 +267,65 @@
   cursor: pointer;
   display: grid;
   place-items: center;
-  opacity: 0;
-  transition: opacity .2s ease, background .2s ease;
+  transition: background .2s ease;
 }
 
-.visit-card:hover .visit-del,
-.visit-del:focus-visible { opacity: 1; }
-
+.visit-edit:hover { background: var(--forest); }
 .visit-del:hover { background: var(--clay-dark); }
+
+/* 编辑态 */
+.visit-edit-area { margin-top: 6px; }
+
+.visit-edit-input {
+  width: 100%;
+  min-height: 64px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 13.5px;
+  line-height: 1.8;
+  font-family: inherit;
+  color: var(--ink);
+  resize: vertical;
+  outline: none;
+  background: #FAFAF7;
+  box-sizing: border-box;
+}
+
+.visit-edit-input:focus { border-color: rgba(74, 110, 81, .55); }
+
+.visit-edit-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.visit-edit-save,
+.visit-edit-cancel {
+  font-size: 12px;
+  padding: 5px 14px;
+  border-radius: 9999px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all .2s ease;
+}
+
+.visit-edit-save {
+  border: 1px solid var(--forest);
+  background: transparent;
+  color: var(--forest);
+}
+
+.visit-edit-save:hover { background: var(--forest); color: #fff; }
+.visit-edit-save:disabled { opacity: .5; cursor: default; }
+
+.visit-edit-cancel {
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--ink-faint);
+}
+
+.visit-edit-cancel:hover { border-color: var(--clay); color: var(--clay-dark); }
 
 /* ---------- 管理区 ---------- */
 .friend-admin {

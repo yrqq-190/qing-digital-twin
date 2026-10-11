@@ -41,9 +41,17 @@ function buildPayload() {
       mem;
   }
 
-  /* 好友口令：持口令的访客按"信任的好朋友"对待 */
+  /* 好友口令：精确到人的专属人设 */
   const fs = typeof window.__friendState === 'function' ? window.__friendState() : null;
-  if (fs && fs.isFriend) {
+  if (fs && fs.isFriend && fs.friend) {
+    const f = fs.friend;
+    sys +=
+      `\n\n【当前访客】这位访客是你的好朋友${f.name}，持口令进来的。以下是你们关系的真实记忆，开场和聊天中自然代入，不要生硬背诵：\n` +
+      (f.memory || []).map((x) => `- ${x}`).join('\n') +
+      `\n\n【聊天风格】${f.style || ''}` +
+      `\n\n【自我约束】${f.selfStyle || ''}` +
+      `\n\n【红线】${f.redLine || ''}`;
+  } else if (fs && fs.isFriend) {
     sys +=
       '\n\n【当前访客】这位访客持有你的朋友口令，是你信任的好朋友。默认用更熟络、更亲昵、更私人的方式交流，可以主动关心 TA 的近况，可以互相吐槽，不用端着。';
   }

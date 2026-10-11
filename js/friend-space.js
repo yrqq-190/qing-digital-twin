@@ -5,7 +5,7 @@
 import { CONFIG } from './config.js';
 
 const API_BASE = CONFIG.BACKEND_URL;
-const FRIEND_PASS = CONFIG.FRIEND_PASS || '';
+const FRIENDS = CONFIG.FRIENDS || [];
 const PASS_KEY = 'friend:pass:v1';
 const NAME_KEY = 'friend:name:v1';
 const ADMIN_KEY = 'hobby:token:v1';
@@ -90,7 +90,17 @@ let currentImage = null;
 let messageBusy = false;
 
 function getAdminToken() { return localStorage.getItem(ADMIN_KEY) || ''; }
-function isFriend() { return Boolean(FRIEND_PASS) && (localStorage.getItem(PASS_KEY) || '') === FRIEND_PASS; }
+
+/* 朋友口令：精确匹配到对应好友，本地只存好友内部标识（不存口令本身） */
+function friendState() {
+  if (!FRIENDS.length) return null;
+  let stored = null;
+  try { stored = JSON.parse(localStorage.getItem(PASS_KEY) || ''); } catch { stored = null; }
+  if (!stored || !stored.key) return null;
+  const friend = FRIENDS.find((f) => f.key === stored.key);
+  if (!friend) return null;
+  return { isFriend: true, friend };
+}
 
 /* ---------- 记忆打通：留言成为分身认识朋友的锚点 ---------- */
 
@@ -100,7 +110,14 @@ window.__friendMemory = () => {
   return recent.map((m) => `- ${m.name || '匿名'}：${String(m.content || '').slice(0, 60)}`).join('\n');
 };
 
-window.__friendState = () => ({ isFriend: isFriend() });
+window.__friendState = () => {
+  const st = friendState();
+  if (!st || !st.friend) return { isFriend: false };
+  const f = st.friend;
+  /* 只暴露人设内容给分身，口令绝不外泄 */
+  const { pass, ...profile } = f;
+  return { isFriend: true, friend: profile };
+};
 
 /* ---------- 云端读写 ---------- */
 
@@ -182,6 +199,60 @@ async function deleteMessage(id) {
   }
 }
 
+async function saveMessageEdit(m, content) {
+  const t = getAdminToken();
+  try {
+    const res = await fetch(`${API_BASE}/api/messages?id=${encodeURIComponent(m.id)}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${t}` },
+      body: JSON.stringify({ content })
+    });
+    const json = await res.json();
+    if (!json.ok) {
+      hint(json.error || '修改失败', 'is-err');
+      return false;
+    }
+    return true;
+  } catch {
+    hint('网络不太通，稍后再试', 'is-err');
+    return false;
+  }
+}
+
+function startEdit(m) {
+  const card = document.querySelector(`.visit-card[data-id="${CSS.escape(m.id)}"]`);
+  if (!card) return;
+  const text = card.querySelector('.visit-text');
+  if (!text) return;
+  const editArea = document.createElement('div');
+  editArea.className = 'visit-edit-area';
+  editArea.innerHTML = `
+    <textarea class="visit-edit-input" maxlength="500">${escapeHtml(m.content)}</textarea>
+    <div class="visit-edit-actions">
+      <button type="button" class="visit-edit-save">保存</button>
+      <button type="button" class="visit-edit-cancel">取消</button>
+    </div>`;
+  text.replaceWith(editArea);
+  const ta = editArea.querySelector('.visit-edit-input');
+  const save = editArea.querySelector('.visit-edit-save');
+  const cancel = editArea.querySelector('.visit-edit-cancel');
+  ta.focus();
+  ta.setSelectionRange(ta.value.length, ta.value.length);
+  const doSave = async () => {
+    const content = ta.value.trim().slice(0, 500);
+    if (!content) { hint('内容不能为空', 'is-err'); return; }
+    save.disabled = true;
+    const ok = await saveMessageEdit(m, content);
+    if (ok) { hint('已修改', 'is-ok'); fetchMessages(); }
+    else save.disabled = false;
+  };
+  save.addEventListener('click', doSave);
+  cancel.addEventListener('click', () => fetchMessages());
+  ta.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); doSave(); }
+  });
+}
+
 /* ---------- 渲染 ---------- */
 
 function hint(text, cls) {
@@ -207,6 +278,7 @@ function renderWall() {
   for (const m of list) {
     const card = document.createElement('div');
     card.className = 'visit-card';
+    card.dataset.id = m.id;
     const isPrivate = m.visibility === 'private';
 
     card.innerHTML = `
@@ -220,11 +292,19 @@ function renderWall() {
         <p class="visit-text">${escapeHtml(m.content)}</p>
         ${m.image ? `<img class="visit-img" src="${m.image}" alt="留言图片" />` : ''}
       </div>
-      ${isAdmin ? `<button class="visit-del" data-id="${escapeHtml(m.id)}" title="删除" aria-label="删除">
-        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="M18 6L6 18" /><path d="M6 6l12 12" />
-        </svg>
-      </button>` : ''}
+      ${isAdmin ? `<div class="visit-ops">
+        <button class="visit-edit" data-id="${escapeHtml(m.id)}" title="修改" aria-label="修改">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+          </svg>
+        </button>
+        <button class="visit-del" data-id="${escapeHtml(m.id)}" title="删除" aria-label="删除">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M18 6L6 18" /><path d="M6 6l12 12" />
+          </svg>
+        </button>
+      </div>` : ''}
     `;
 
     const img = card.querySelector('.visit-img');
@@ -234,6 +314,10 @@ function renderWall() {
     const del = card.querySelector('.visit-del');
     if (del) {
       del.addEventListener('click', () => deleteMessage(del.dataset.id));
+    }
+    const edit = card.querySelector('.visit-edit');
+    if (edit) {
+      edit.addEventListener('click', () => startEdit(m));
     }
     wall.appendChild(card);
   }
@@ -373,12 +457,13 @@ function init() {
     }
   });
 
-  /* 好友口令 */
+  /* 好友口令：匹配到对应好友则记住（只存内部标识） */
   $('#f-pass-input').addEventListener('change', (e) => {
     const v = e.target.value.trim();
-    if (!FRIEND_PASS) { hint('朋友口令尚未开放', 'is-err'); return; }
-    if (v === FRIEND_PASS) {
-      localStorage.setItem(PASS_KEY, v);
+    if (!FRIENDS.length) { hint('朋友口令尚未开放', 'is-err'); return; }
+    const hit = FRIENDS.find((f) => f.pass === v);
+    if (hit) {
+      localStorage.setItem(PASS_KEY, JSON.stringify({ key: hit.key }));
       hint('已识别为朋友，欢迎回来', 'is-ok');
     } else {
       hint('口令不对哦', 'is-err');
