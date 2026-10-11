@@ -199,6 +199,47 @@ function render(kind) {
   else renderPhotos();
 }
 
+/* ---- 一次一卡：卡片宽度 = 可视容器宽度（解决多卡同屏/封面截断） ---- */
+
+function layoutBookCards() {
+  const scroll = $('.book-scroll');
+  if (!scroll) return;
+  const w = scroll.clientWidth;
+  $$('.book-item', scroll).forEach((el) => { el.style.width = w + 'px'; });
+}
+
+let layoutTimer = null;
+window.addEventListener('resize', () => {
+  clearTimeout(layoutTimer);
+  layoutTimer = setTimeout(layoutBookCards, 120);
+});
+
+/* ---- 金句编辑：双击纸片 / 新增后直接进入编辑 ---- */
+
+function openQuoteEditor(quotesBox, idx, quotes, book) {
+  const el = quotesBox.children[idx];
+  const ta = document.createElement('textarea');
+  ta.className = 'book-quote-edit';
+  ta.value = quotes[idx] || '';
+  ta.rows = 2;
+  if (el) el.replaceWith(ta);
+  else quotesBox.appendChild(ta);
+  ta.focus();
+  ta.setSelectionRange(ta.value.length, ta.value.length);
+  const commit = () => {
+    quotes[idx] = ta.value.trim();
+    book.quote = quotes.filter((s) => s.trim()).join('\n');
+    scheduleSave('books');
+    renderBooks();
+  };
+  ta.addEventListener('blur', commit);
+  ta.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); ta.blur(); }
+    if (e.key === 'Escape') { ta.blur(); }
+  });
+  return ta;
+}
+
 /* ---- 书籍：横滑一屏一卡 ---- */
 
 function renderBooks() {
@@ -264,7 +305,7 @@ function renderBooks() {
     if (coverImg) {
       coverImg.addEventListener('click', (e) => {
         e.stopPropagation();
-        showPreview(book.cover);
+        showPreview(book.cover, book.title, book.author);
       });
     }
 
@@ -285,40 +326,17 @@ function renderBooks() {
       $$('.book-quote', quotesBox).forEach((el) => {
         el.addEventListener('dblclick', () => {
           const idx = Array.from(quotesBox.children).indexOf(el);
-          const ta = document.createElement('textarea');
-          ta.className = 'book-quote-edit';
-          ta.value = quotes[idx] || '';
-          ta.rows = 2;
-          el.replaceWith(ta);
-          ta.focus();
-          ta.setSelectionRange(ta.value.length, ta.value.length);
-          const commit = () => {
-            quotes[idx] = ta.value.trim();
-            book.quote = quotes.join('\n');
-            scheduleSave('books');
-            renderBooks();
-          };
-          ta.addEventListener('blur', commit);
-          ta.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); ta.blur(); }
-            if (e.key === 'Escape') { ta.blur(); }
-          });
+          openQuoteEditor(quotesBox, idx, quotes, book);
         });
       });
     }
 
-    /* 添加金句 */
+    /* 添加金句：直接在当前卡片末尾插入编辑框（不依赖重渲染） */
     const addQuoteBtn = item.querySelector('.book-quote-add');
     if (addQuoteBtn) {
       addQuoteBtn.addEventListener('click', () => {
         quotes.push('');
-        book.quote = quotes.join('\n');
-        renderBooks();
-        const lastCard = $('#book-list .book-item:last-child');
-        if (lastCard) {
-          const lastQuote = lastCard.querySelector('.book-quote:last-child');
-          if (lastQuote) lastQuote.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
-        }
+        openQuoteEditor(quotesBox, quotes.length - 1, quotes, book);
       });
     }
 
@@ -333,6 +351,8 @@ function renderBooks() {
 
     list.appendChild(item);
   });
+
+  layoutBookCards();
 }
 
 /* ---- 相册（带备注 + 日期） ---- */
@@ -358,7 +378,7 @@ function renderPhotos() {
       </figcaption>
     `;
 
-    el.querySelector('img').addEventListener('click', () => showPreview(p.src));
+    el.querySelector('img').addEventListener('click', () => showPreview(p.src, p.caption, p.date));
 
     const captionInput = el.querySelector('.photo-caption');
     const dateInput = el.querySelector('.photo-date');
@@ -401,13 +421,24 @@ function scheduleSave(kind) {
 
 const preview = document.createElement('div');
 preview.className = 'img-preview';
-preview.innerHTML = '<img alt="预览" />';
+preview.innerHTML = `
+  <img alt="预览" />
+  <p class="img-preview-meta"></p>`;
 preview.addEventListener('click', () => preview.setAttribute('data-open', 'false'));
 document.body.appendChild(preview);
 
-function showPreview(src) {
+function showPreview(src, caption, date) {
   const img = preview.querySelector('img');
   img.src = src;
+  const meta = preview.querySelector('.img-preview-meta');
+  const parts = [caption, date].filter((s) => String(s || '').trim());
+  if (parts.length) {
+    meta.textContent = parts.join(' · ');
+    meta.style.display = '';
+  } else {
+    meta.textContent = '';
+    meta.style.display = 'none';
+  }
   preview.setAttribute('data-open', 'true');
 }
 
@@ -418,6 +449,9 @@ function openModal(id) {
   if (!el) return;
   el.setAttribute('data-open', 'true');
   document.body.style.overflow = 'hidden';
+  if (id === 'modal-reading') {
+    requestAnimationFrame(layoutBookCards);
+  }
 }
 
 function closeModal(modal) {
@@ -506,6 +540,7 @@ if (photoGrid) {
 $('#add-book-btn')?.addEventListener('click', () => {
   books.push({ id: Date.now(), title: '', author: '', thought: '', quote: '', cover: '' });
   renderBooks();
+  layoutBookCards();
   scheduleSave('books');
   const scroll = $('.book-scroll');
   if (scroll) {
