@@ -55,7 +55,7 @@ function applyCors(req, res) {
   let allow = '*';
   if (allowed[0] !== '*' && origin && allowed.includes(origin)) allow = origin;
   res.set('Access-Control-Allow-Origin', allow);
-  res.set('Access-Control-Allow-Methods', 'POST, GET, OPTIONS');
+  res.set('Access-Control-Allow-Methods', 'POST, GET, DELETE, OPTIONS');
   res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   res.set('Access-Control-Max-Age', '86400');
   res.set('Cache-Control', 'no-store');
@@ -225,6 +225,81 @@ function makeDataRoute(kind, fallback) {
 makeDataRoute('books', []);
 makeDataRoute('photos', []);
 makeDataRoute('profile', {});
+
+/* ---------- 留言墙（朋友空间） ----------
+ * 集合 messages：每条留言一个文档。
+ * 留言：公开（public）或悄悄话（private，仅管理口令可见）。
+ * 接口：
+ *   GET    /api/messages            公开留言（带管理口令时含悄悄话）
+ *   POST   /api/messages            新增留言（任何人，限流）
+ *   DELETE /api/messages?id=xxx     管理端删除留言（口令）
+ */
+
+const MSG_COLLECTION = 'messages';
+
+app.get('/api/messages', async (req, res) => {
+  try {
+    const res2 = await db.collection(MSG_COLLECTION).limit(500).get();
+    const docs = res2.data || [];
+    const isAdmin = checkWriteAuth(req);
+    const messages = docs
+      .filter((d) => d.visibility !== 'private' || isAdmin)
+      .map((d) => ({
+        id: d.id, name: d.name, content: d.content,
+        image: d.image || null, visibility: d.visibility || 'public',
+        createdAt: d.createdAt
+      }))
+      .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+    res.json({ ok: true, messages });
+  } catch (e) {
+    console.error('messages read error:', e && e.message);
+    res.status(500).json({ error: `读取留言失败：${e && e.message}` });
+  }
+});
+
+app.post('/api/messages', async (req, res) => {
+  const ip = req.headers['x-forwarded-for'] || req.ip || 'unknown';
+  if (!checkRateLimit(ip, Number(getEnv('MSG_RATE_PER_MIN', '10')))) {
+    return res.status(429).json({ error: '留言太频繁啦，歇一会儿再来。' });
+  }
+  const { name, content, image, visibility } = req.body || {};
+  const n = String(name || '').trim().slice(0, 20);
+  const c = String(content || '').trim().slice(0, 500);
+  if (!n || !c) return res.status(400).json({ error: '昵称和内容不能为空。' });
+  if (image && (typeof image !== 'string' || image.length > 2 * 1024 * 1024)) {
+    return res.status(400).json({ error: '图片太大了，压缩到 2MB 内再传。' });
+  }
+  const createdAt = Date.now();
+  const id = String(createdAt) + String(Math.floor(Math.random() * 1000));
+  try {
+    await db.collection(MSG_COLLECTION).add({
+      id, name: n, content: c,
+      image: image ? String(image).slice(0, 2 * 1024 * 1024) : null,
+      visibility: visibility === 'private' ? 'private' : 'public',
+      createdAt
+    });
+    res.json({ ok: true, id });
+  } catch (e) {
+    console.error('messages add error:', e && e.message);
+    res.status(500).json({ error: `留言保存失败：${e && e.message}` });
+  }
+});
+
+app.delete('/api/messages', async (req, res) => {
+  if (!checkWriteAuth(req)) return res.status(401).json({ error: '写入口令错误。' });
+  const id = req.query.id;
+  if (!id) return res.status(400).json({ error: '缺少留言 id。' });
+  try {
+    const res2 = await db.collection(MSG_COLLECTION).where({ id }).get();
+    const doc = res2.data && res2.data[0];
+    if (!doc) return res.status(404).json({ error: '留言不存在。' });
+    await db.collection(MSG_COLLECTION).doc(doc._id).remove();
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('messages delete error:', e && e.message);
+    res.status(500).json({ error: `删除失败：${e && e.message}` });
+  }
+});
 
 app.get('/', (req, res) => res.json({ ok: true, service: 'qing-digital-twin-cloudbase' }));
 

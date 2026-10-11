@@ -23,6 +23,11 @@ export const CONFIG = {
   /* 后端不可达时是否回退本地演示模式 */
   DEMO_FALLBACK: true,
 
+  /* 好友口令信物：把想好的口令填在这里，私下告诉朋友；
+     朋友在留言面板输入一次后浏览器记住，数字分身会以"好朋友"的方式交流。
+     留空表示暂未启用。 */
+  FRIEND_PASS: '',
+
   /* 输入与存储 */
   MAX_INPUT_LENGTH: 500,
   STORAGE_KEY: 'qing-digital-twin:v1:history',

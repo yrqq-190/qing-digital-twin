@@ -31,7 +31,24 @@ function pushHistory(role, content) {
 }
 
 function buildPayload() {
-  return [{ role: 'system', content: SYSTEM_PROMPT }, ...state.history];
+  let sys = SYSTEM_PROMPT;
+
+  /* 留言墙记忆：让分身自然记得访客留过言 */
+  const mem = typeof window.__friendMemory === 'function' ? window.__friendMemory() : '';
+  if (mem) {
+    sys +=
+      '\n\n【留言墙记忆】以下是你主页留言墙上最近收到的留言。如果当前访客就是其中某人，或提到相关话题，可以自然提起（例如"你上次留言说……"）；不要生硬背诵，没相关时不用。\n' +
+      mem;
+  }
+
+  /* 好友口令：持口令的访客按"信任的好朋友"对待 */
+  const fs = typeof window.__friendState === 'function' ? window.__friendState() : null;
+  if (fs && fs.isFriend) {
+    sys +=
+      '\n\n【当前访客】这位访客持有你的朋友口令，是你信任的好朋友。默认用更熟络、更亲昵、更私人的方式交流，可以主动关心 TA 的近况，可以互相吐槽，不用端着。';
+  }
+
+  return [{ role: 'system', content: sys }, ...state.history];
 }
 
 /* ---------- 回复生产 ---------- */
