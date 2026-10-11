@@ -2,7 +2,7 @@
  * 朋友空间：留言墙 + 来访卡 + 分身记忆打通
  * 留言存云端 messages 集合；访客名字/口令信物存浏览器本地。
  */
-import { CONFIG } from './config.js';
+import { CONFIG } from './config.js?v=20261012';
 
 const API_BASE = CONFIG.BACKEND_URL;
 const FRIENDS = CONFIG.FRIENDS || [];
