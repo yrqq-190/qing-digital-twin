@@ -1,5 +1,7 @@
 # 依赖与本地环境
 node_modules/
+cloudbase-backend.zip
+cloudbase-backend-fixed.zip
 .env
 .env.local
 .dev.vars

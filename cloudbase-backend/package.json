@@ -1,0 +1,13 @@
+{
+  "name": "qing-digital-twin-cloudbase",
+  "version": "1.0.0",
+  "description": "小卿个人主页后端 - 腾讯云 CloudBase HTTP 云函数（DeepSeek 流式代理 + 云数据库）",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "@cloudbase/node-sdk": "^2.9.2",
+    "express": "^4.21.2"
+  }
+}

@@ -30,9 +30,13 @@ qing-digital-twin/
 │   ├── ui.js             # UI 层：消息/打字机/流式气泡/状态栏
 │   ├── store.js          # 持久化层：localStorage 读写
 │   └── main.js           # 主流程：状态管理、事件绑定
-├── worker/               # 线上后端：Cloudflare Worker 代理
+├── worker/               # 旧线上后端（Cloudflare Worker，国内部分网络不可达，备用）
 │   ├── worker.js
 │   └── wrangler.toml
+├── cloudbase-backend/     # 当前线上后端（腾讯云 CloudBase HTTP 云函数）
+│   ├── index.js
+│   ├── package.json
+│   └── scf_bootstrap
 ├── server/               # 本地开发服务器（零依赖）
 │   ├── server.js
 │   ├── package.json
@@ -46,7 +50,7 @@ qing-digital-twin/
 浏览器（前端，GitHub Pages）
    │  fetch /api/chat（仅携带对话内容，无密钥）
    ▼
-后端代理（Cloudflare Worker / 本地 server.js）
+后端代理（腾讯云 CloudBase HTTP 云函数 / 本地 server.js）
    │  持有 DEEPSEEK_API_KEY，参数二次封顶，速率限制
    ▼
 DeepSeek API（SSE 流式返回）
@@ -143,10 +147,10 @@ BACKEND_URL: 'https://your-worker.xxx.workers.dev',
 - **文学与阅读**：横向滑动卡片流，点封面传书籍图片、填书名/作者/感想，「金句」以撕纸质感纸片呈现（双击纸片可编辑，可添加多句）；
 - **摄影与生活**：相册，点「＋」或拖拽照片上传，自动压缩后存入云端，点照片看大图、悬停显示删除。
 
-存储：数据写入 Cloudflare KV（`HOBBY_KV` 命名空间），任何设备打开页面都能看到，无需手动导出或改代码；localStorage 仅作离线缓存，云端不可达时仍可浏览本地快照。
+存储：数据写入腾讯云 CloudBase 文档型数据库（集合 `hobby`），任何设备打开页面都能看到，无需手动导出或改代码；localStorage 仅作离线缓存，云端不可达时仍可浏览本地快照。
 
-- API：`GET/POST /api/books`、`GET/POST /api/photos`（Worker 内 `handleHobby`）；
-- 写入口令：POST 需 `Authorization: Bearer <HOBBY_TOKEN>`（Worker secret，防止访客往你的相册写入内容；读取不需要口令）；
+- API：`GET/POST /api/books`、`GET/POST /api/photos`、`GET/POST /api/profile`（云函数 `qing-backend`，见 `cloudbase-backend/index.js`）；
+- 写入口令：POST 需 `Authorization: Bearer <HOBBY_TOKEN>`（环境变量，防止访客往你的相册写入内容；读取不需要口令）；
 - 图片处理：前端 canvas 压缩（书籍封面最长边 480px、相册 1440px，JPEG），单张源文件上限 8MB，请求体上限 24MB；
 - 备份：模态框底部「导出数据」可下载 JSON 备份（本地文件，随时可恢复）；
 - 入口卡片背景图：`assets/hobby-reading.jpg`、`assets/hobby-photo.jpg`（自托管，走 `img-src 'self'`）；
