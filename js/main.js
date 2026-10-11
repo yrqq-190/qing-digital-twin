@@ -102,6 +102,54 @@ async function produceReply(userText) {
   }
 }
 
+/* ---------- 气泡拆分：长回复拆成多条连续消息，更像真人打字 ---------- */
+
+const BUBBLE_DELAY = 380; // 每条气泡之间的间隔
+const BUBBLE_MAX = 90;    // 每块累计字符上限（约 1-2 句）
+
+/** 含代码块时不拆（避免 Markdown 渲染被切坏） */
+function hasCodeBlock(text) {
+  return /```[\s\S]*?```/.test(text) || /`[^`\n]{20,}`/.test(text);
+}
+
+/** 按中文/英文句读切句，贪心合并成 1-2 句的块 */
+function splitReply(text) {
+  const t = String(text || '').trim();
+  if (!t) return [];
+  if (hasCodeBlock(t) || t.length <= BUBBLE_MAX) return [t];
+  const sentences = t
+    .split(/(?<=[。！？；\n])|(?<=[.!?;])\s*/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+  if (sentences.length <= 1) return [t];
+  const chunks = [];
+  let cur = '';
+  for (const s of sentences) {
+    if (!cur) { cur = s; continue; }
+    if (cur.length + s.length <= BUBBLE_MAX) {
+      cur += ' ' + s;
+    } else {
+      chunks.push(cur);
+      cur = s;
+    }
+  }
+  if (cur) chunks.push(cur);
+  return chunks;
+}
+
+/** 渲染助手回复：拆成多条时逐条发送（第一条立即，后续间隔出现） */
+async function renderAssistantReply(text) {
+  const chunks = splitReply(text);
+  if (chunks.length <= 1) {
+    ui.renderMessage('assistant', renderMarkdown(text));
+    return;
+  }
+  for (let i = 0; i < chunks.length; i++) {
+    if (i > 0) await delay(BUBBLE_DELAY);
+    ui.renderMessage('assistant', renderMarkdown(chunks[i]));
+  }
+}
+
 /* ---------- 主流程 ---------- */
 
 async function handleSend(rawText) {
@@ -126,8 +174,13 @@ async function handleSend(rawText) {
   if (reply) {
     if (reply.keepBubble && reply.stream) {
       reply.stream.flush();
+      if (splitReply(reply.text).length > 1) {
+        // 内容较多：收起流式气泡，拆成多条连续消息更像真人
+        reply.stream.remove();
+        await renderAssistantReply(reply.text);
+      }
     } else {
-      ui.renderMessage('assistant', renderMarkdown(reply.text));
+      await renderAssistantReply(reply.text);
     }
     pushHistory('assistant', reply.text);
     saveHistory(state.history);
