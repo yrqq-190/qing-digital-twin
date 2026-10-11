@@ -3,7 +3,7 @@
  * 分层：main（编排）→ api（模型通信）→ ui（渲染）→ store（持久化）。
  */
 import { CONFIG } from './config.js';
-import { SYSTEM_PROMPT, matchLocalReply, GREETING } from './persona.js';
+import { SYSTEM_PROMPT, matchLocalReply, GREETING } from './persona.js?v=20261011';
 import { renderMarkdown } from './markdown.js';
 import { loadHistory, saveHistory, clearHistory } from './store.js';
 import { callBackend } from './api.js';
