@@ -2,7 +2,7 @@
  * 朋友空间：留言墙 + 来访卡 + 分身记忆打通
  * 留言存云端 messages 集合；访客名字/口令信物存浏览器本地。
  */
-import { CONFIG } from './config.js?v=20261014';
+import { CONFIG } from './config.js?v=20261015';
 
 const API_BASE = CONFIG.BACKEND_URL;
 const FRIENDS = CONFIG.FRIENDS || [];
@@ -400,7 +400,27 @@ function submitPass(v) {
       renderWall();
       hint('口令不对哦', 'is-err');
     }
+    updatePassPanel();
   });
+}
+
+/* 退出朋友/管理模式：清掉本地信物，分身回到普通访客模式 */
+function exitPassMode() {
+  localStorage.removeItem(PASS_KEY);
+  localStorage.removeItem(ADMIN_KEY);
+  isAdmin = false;
+  renderWall();
+  hint('已退出当前模式', 'is-ok');
+  updatePassPanel();
+}
+
+/* 有生效的模式时显示"退出"按钮 */
+function updatePassPanel() {
+  const btn = $('#f-pass-exit');
+  if (!btn) return;
+  const hasFriend = !!friendState();
+  const hasAdmin = !!localStorage.getItem(ADMIN_KEY);
+  btn.hidden = !(hasFriend || hasAdmin);
 }
 
 /* ---------- 模态框开关 ---------- */
@@ -490,6 +510,8 @@ function init() {
     if (passBox) passBox.hidden = true;
     submitPass(v);
   });
+  $('#f-pass-exit').addEventListener('click', exitPassMode);
+  updatePassPanel();
   $('#f-pass-input').addEventListener('keydown', (e) => {
     if (e.key === 'Enter') {
       const v = e.target.value.trim();

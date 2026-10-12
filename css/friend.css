@@ -379,6 +379,17 @@
 
 .pass-box .f-field:focus { border-color: rgba(74, 110, 81, .55); }
 
+.pass-exit {
+  border: none;
+  background: transparent;
+  color: var(--ink-faint);
+  font-size: 10.5px;
+  cursor: pointer;
+  padding: 2px 0;
+  transition: color .2s ease;
+}
+.pass-exit:hover { color: #B85C4A; }
+
 .pass-hint {
   font-size: 10.5px;
   color: var(--ink-faint);
