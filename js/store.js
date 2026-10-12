@@ -2,7 +2,7 @@
  * 对话持久化层：基于 localStorage，刷新页面后聊天记录不丢失。
  * 对损坏数据 / 配额超限做了容错，任何情况下都不会让主流程崩溃。
  */
-import { CONFIG } from './config.js?v=20261013';
+import { CONFIG } from './config.js?v=20261014';
 
 const KEY = CONFIG.STORAGE_KEY;
 

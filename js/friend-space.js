@@ -2,7 +2,7 @@
  * 朋友空间：留言墙 + 来访卡 + 分身记忆打通
  * 留言存云端 messages 集合；访客名字/口令信物存浏览器本地。
  */
-import { CONFIG } from './config.js?v=20261013';
+import { CONFIG } from './config.js?v=20261014';
 
 const API_BASE = CONFIG.BACKEND_URL;
 const FRIENDS = CONFIG.FRIENDS || [];
@@ -125,9 +125,9 @@ function friendState() {
 /* ---------- 记忆打通：留言成为分身认识朋友的锚点 ---------- */
 
 window.__friendMemory = () => {
-  const recent = messages.filter((m) => m.visibility !== 'private').slice(0, 8);
+  const recent = messages.filter((m) => m.visibility !== 'private').slice(0, 3);
   if (!recent.length) return '';
-  return recent.map((m) => `- ${m.name || '匿名'}：${String(m.content || '').slice(0, 60)}`).join('\n');
+  return recent.map((m) => `- ${m.name || '匿名'}：${String(m.content || '').slice(0, 40)}`).join('\n');
 };
 
 window.__friendState = () => {

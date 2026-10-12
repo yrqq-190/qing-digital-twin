@@ -105,7 +105,7 @@ app.post('/api/chat', async (req, res) => {
   const body = req.body || {};
   const messages = Array.isArray(body.messages) ? body.messages : null;
   const maxTurns = Number(getEnv('MAX_TURNS', '24'));
-  const maxChars = Number(getEnv('MAX_CHARS_PER_MESSAGE', '2000'));
+  const maxChars = Number(getEnv('MAX_CHARS_PER_MESSAGE', '10000'));
 
   if (!messages || messages.length === 0 || messages.length > maxTurns) {
     return res.status(400).json({ error: '消息数量超出限制。' });

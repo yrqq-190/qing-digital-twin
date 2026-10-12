@@ -16,7 +16,7 @@ export const CONFIG = {
   /* 模型参数（前端仅作初始值，服务端会二次封顶，防止滥用） */
   MODEL: 'deepseek-chat',
   TEMPERATURE: 0.8,
-  MAX_TOKENS: 700,
+  MAX_TOKENS: 512,
   MAX_TURNS: 12,           // 保留最近 N 轮对话作为上下文
   REQUEST_TIMEOUT: 60000,  // 后端流式响应整体超时（毫秒）
 

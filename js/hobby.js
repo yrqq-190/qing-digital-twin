@@ -7,7 +7,7 @@
  * - 导出数据：下载 JSON 备份。
  * 入口卡片背景图：长按/悬停编辑按钮 → 上传 → 正方形取景框选位置 → 存云端。
  */
-import { CONFIG } from './config.js?v=20261013';
+import { CONFIG } from './config.js?v=20261014';
 
 const API_BASE = CONFIG.BACKEND_URL;
 const STORE_KEYS = { books: 'hobby:books:v1', photos: 'hobby:photos:v1', profile: 'hobby:profile:v1', token: 'hobby:token:v1' };

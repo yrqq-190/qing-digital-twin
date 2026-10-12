@@ -2,8 +2,8 @@
  * 主流程入口：状态管理、事件绑定、发送/停止/清空/下载简历。
  * 分层：main（编排）→ api（模型通信）→ ui（渲染）→ store（持久化）。
  */
-import { CONFIG } from './config.js?v=20261013';
-import { SYSTEM_PROMPT, matchLocalReply, GREETING } from './persona.js?v=20261013';
+import { CONFIG } from './config.js?v=20261014';
+import { SYSTEM_PROMPT, matchLocalReply, GREETING } from './persona.js?v=20261014';
 import { renderMarkdown } from './markdown.js';
 import { loadHistory, saveHistory, clearHistory } from './store.js';
 import { callBackend } from './api.js';
@@ -31,32 +31,41 @@ function pushHistory(role, content) {
 }
 
 function buildPayload() {
-  let sys = SYSTEM_PROMPT;
+  /* 第一条 system 永远固定不变（persona），前缀稳定可命中 DeepSeek 上下文缓存，输入费用大幅下降 */
+  const messages = [{ role: 'system', content: SYSTEM_PROMPT }, ...state.history.slice(-20)];
 
-  /* 留言墙记忆：让分身自然记得访客留过言 */
+  /* 动态记忆统一放末尾，不污染固定前缀；新访客无记忆时完全省略 */
   const mem = typeof window.__friendMemory === 'function' ? window.__friendMemory() : '';
   if (mem) {
-    sys +=
-      '\n\n【留言墙记忆】以下是你主页留言墙上最近收到的留言。如果当前访客就是其中某人，或提到相关话题，可以自然提起（例如"你上次留言说……"）；不要生硬背诵，没相关时不用。\n' +
-      mem;
+    messages.push({
+      role: 'system',
+      content:
+        '【留言墙记忆】以下是你主页留言墙上最近收到的留言。如果当前访客就是其中某人，或提到相关话题，可以自然提起（例如"你上次留言说……"）；不要生硬背诵，没相关时不用。\n' +
+        mem
+    });
   }
 
-  /* 好友口令：精确到人的专属人设 */
   const fs = typeof window.__friendState === 'function' ? window.__friendState() : null;
   if (fs && fs.isFriend && fs.friend) {
     const f = fs.friend;
-    sys +=
-      `\n\n【当前访客】这位访客是你的好朋友${f.name}，持口令进来的。以下是你们关系的真实记忆，开场和聊天中自然代入，不要生硬背诵：\n` +
-      (f.memory || []).map((x) => `- ${x}`).join('\n') +
-      `\n\n【聊天风格】${f.style || ''}` +
-      `\n\n【自我约束】${f.selfStyle || ''}` +
-      `\n\n【红线】${f.redLine || ''}`;
+    messages.push({
+      role: 'system',
+      content:
+        `【当前访客】这位访客是你的好朋友${f.name}，持口令进来的。以下是你们关系的真实记忆，开场和聊天中自然代入，不要生硬背诵：\n` +
+        (f.memory || []).map((x) => `- ${x}`).join('\n') +
+        `\n\n【聊天风格】${f.style || ''}` +
+        `\n\n【自我约束】${f.selfStyle || ''}` +
+        `\n\n【红线】${f.redLine || ''}`
+    });
   } else if (fs && fs.isFriend) {
-    sys +=
-      '\n\n【当前访客】这位访客持有你的朋友口令，是你信任的好朋友。默认用更熟络、更亲昵、更私人的方式交流，可以主动关心 TA 的近况，可以互相吐槽，不用端着。';
+    messages.push({
+      role: 'system',
+      content:
+        '【当前访客】这位访客持有你的朋友口令，是你信任的好朋友。默认用更熟络、更亲昵、更私人的方式交流，可以主动关心 TA 的近况，可以互相吐槽，不用端着。'
+    });
   }
 
-  return [{ role: 'system', content: sys }, ...state.history];
+  return messages;
 }
 
 /* ---------- 回复生产 ---------- */
