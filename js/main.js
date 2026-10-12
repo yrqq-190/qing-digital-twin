@@ -2,8 +2,8 @@
  * 主流程入口：状态管理、事件绑定、发送/停止/清空/下载简历。
  * 分层：main（编排）→ api（模型通信）→ ui（渲染）→ store（持久化）。
  */
-import { CONFIG } from './config.js?v=20261015';
-import { SYSTEM_PROMPT, matchLocalReply, GREETING } from './persona.js?v=20261015';
+import { CONFIG } from './config.js?v=20261016';
+import { SYSTEM_PROMPT, matchLocalReply, GREETING } from './persona.js?v=20261016';
 import { renderMarkdown } from './markdown.js';
 import { loadHistory, saveHistory, clearHistory } from './store.js';
 import { callBackend } from './api.js';
@@ -31,10 +31,13 @@ function pushHistory(role, content) {
 }
 
 function buildPayload() {
-  /* 第一条 system 永远固定不变（persona），前缀稳定可命中 DeepSeek 上下文缓存，输入费用大幅下降 */
-  const messages = [{ role: 'system', content: SYSTEM_PROMPT }, ...state.history.slice(-20)];
+  /* 前缀保持稳定（固定 persona + 早期历史），可命中 DeepSeek 上下文缓存，输入费用大降 */
+  const hist = state.history.slice(-20);
+  const last = hist[hist.length - 1];
+  const head = last && last.role === 'user' ? hist.slice(0, -1) : hist;
+  const messages = [{ role: 'system', content: SYSTEM_PROMPT }, ...head];
 
-  /* 动态记忆统一放末尾，不污染固定前缀；新访客无记忆时完全省略 */
+  /* 动态记忆放在最新消息之前：不污染固定前缀，且用户输入永远在最后 */
   const mem = typeof window.__friendMemory === 'function' ? window.__friendMemory() : '';
   if (mem) {
     messages.push({
@@ -65,6 +68,7 @@ function buildPayload() {
     });
   }
 
+  if (last && last.role === 'user') messages.push(last);
   return messages;
 }
 
