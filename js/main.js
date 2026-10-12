@@ -2,8 +2,8 @@
  * 主流程入口：状态管理、事件绑定、发送/停止/清空/下载简历。
  * 分层：main（编排）→ api（模型通信）→ ui（渲染）→ store（持久化）。
  */
-import { CONFIG } from './config.js?v=20261012';
-import { SYSTEM_PROMPT, matchLocalReply, GREETING } from './persona.js?v=20261012';
+import { CONFIG } from './config.js?v=20261013';
+import { SYSTEM_PROMPT, matchLocalReply, GREETING } from './persona.js?v=20261013';
 import { renderMarkdown } from './markdown.js';
 import { loadHistory, saveHistory, clearHistory } from './store.js';
 import { callBackend } from './api.js';

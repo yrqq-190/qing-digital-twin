@@ -2,13 +2,33 @@
  * 朋友空间：留言墙 + 来访卡 + 分身记忆打通
  * 留言存云端 messages 集合；访客名字/口令信物存浏览器本地。
  */
-import { CONFIG } from './config.js?v=20261012';
+import { CONFIG } from './config.js?v=20261013';
 
 const API_BASE = CONFIG.BACKEND_URL;
 const FRIENDS = CONFIG.FRIENDS || [];
 const PASS_KEY = 'friend:pass:v1';
 const NAME_KEY = 'friend:name:v1';
 const ADMIN_KEY = 'hobby:token:v1';
+const EDITS_KEY = 'friend:edits:v1';
+
+function getEditToken(id) {
+  const map = readCache(EDITS_KEY, {});
+  return map[id] || '';
+}
+
+function saveEditToken(id, token) {
+  const map = readCache(EDITS_KEY, {});
+  map[id] = token;
+  writeCache(EDITS_KEY, map);
+}
+
+function removeEditToken(id) {
+  const map = readCache(EDITS_KEY, {});
+  if (map[id]) {
+    delete map[id];
+    writeCache(EDITS_KEY, map);
+  }
+}
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
@@ -122,21 +142,20 @@ window.__friendState = () => {
 /* ---------- 云端读写 ---------- */
 
 async function fetchMessages() {
-  if (!API_BASE) return;
+  if (!API_BASE) return false;
   const headers = {};
   const t = getAdminToken();
   if (t) headers['Authorization'] = `Bearer ${t}`;
   try {
     const res = await fetch(`${API_BASE}/api/messages`, { headers });
-    if (!res.ok) return;
+    if (!res.ok) return false;
     const json = await res.json();
-    if (json.ok) {
-      messages = json.messages || [];
-      isAdmin = Boolean(t);
-      syncAdminUi();
-      renderWall();
-    }
-  } catch { /* 离线静默 */ }
+    if (!json.ok) return false;
+    messages = json.messages || [];
+    isAdmin = Boolean(t);
+    renderWall();
+    return true;
+  } catch { return false; }
 }
 
 async function sendMessage() {
@@ -161,6 +180,7 @@ async function sendMessage() {
       hint(json.error || '留言失败，稍后再试', 'is-err');
       return;
     }
+    if (json.id && json.editToken) saveEditToken(json.id, json.editToken);
     localStorage.setItem(NAME_KEY, name);
     $('#f-content').value = '';
     currentImage = null;
@@ -181,18 +201,20 @@ async function sendMessage() {
 
 async function deleteMessage(id) {
   const t = getAdminToken();
-  if (!t) { hint('需要先进入管理模式', 'is-err'); return; }
+  const et = getEditToken(id);
+  if (!t && !et) { hint('这条留言不是你发的，不能删除', 'is-err'); return; }
   if (!confirm('删除这条留言？')) return;
   try {
-    const res = await fetch(`${API_BASE}/api/messages?id=${encodeURIComponent(id)}`, {
-      method: 'DELETE',
-      headers: { Authorization: `Bearer ${t}` }
-    });
+    const headers = {};
+    if (t) headers['Authorization'] = `Bearer ${t}`;
+    const url = `${API_BASE}/api/messages?id=${encodeURIComponent(id)}` + (et ? `&editToken=${encodeURIComponent(et)}` : '');
+    const res = await fetch(url, { method: 'DELETE', headers });
     const json = await res.json();
     if (!json.ok) {
       hint(json.error || '删除失败', 'is-err');
       return;
     }
+    removeEditToken(id);
     fetchMessages();
   } catch {
     hint('网络不太通，稍后再试', 'is-err');
@@ -201,11 +223,17 @@ async function deleteMessage(id) {
 
 async function saveMessageEdit(m, content) {
   const t = getAdminToken();
+  const et = getEditToken(m.id);
+  if (!t && !et) { hint('这条留言不是你发的，不能修改', 'is-err'); return false; }
   try {
+    const headers = { 'Content-Type': 'application/json' };
+    if (t) headers['Authorization'] = `Bearer ${t}`;
+    const body = { content };
+    if (et && !t) body.editToken = et;
     const res = await fetch(`${API_BASE}/api/messages?id=${encodeURIComponent(m.id)}`, {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${t}` },
-      body: JSON.stringify({ content })
+      headers,
+      body: JSON.stringify(body)
     });
     const json = await res.json();
     if (!json.ok) {
@@ -264,6 +292,10 @@ function hint(text, cls) {
   hint._t = setTimeout(() => { el.textContent = ''; el.className = 'f-hint'; }, 2600);
 }
 
+function canManage(m) {
+  return isAdmin || Boolean(getEditToken(m.id));
+}
+
 function renderWall() {
   const wall = $('#friend-wall');
   if (!wall) return;
@@ -292,7 +324,7 @@ function renderWall() {
         <p class="visit-text">${escapeHtml(m.content)}</p>
         ${m.image ? `<img class="visit-img" src="${m.image}" alt="留言图片" />` : ''}
       </div>
-      ${isAdmin ? `<div class="visit-ops">
+      ${canManage(m) ? `<div class="visit-ops">
         <button class="visit-edit" data-id="${escapeHtml(m.id)}" title="修改" aria-label="修改">
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
@@ -348,43 +380,27 @@ function showPreview(src, metaText) {
   pv.setAttribute('data-open', 'true');
 }
 
-/* ---------- 管理 ---------- */
+/* ---------- 统一口令入口 ---------- */
 
-function syncAdminUi() {
-  const btn = $('#f-admin-btn');
-  if (!btn) return;
-  if (isAdmin) {
-    btn.textContent = '管理模式';
-    btn.classList.add('is-on');
-    $('#f-admin-box').hidden = true;
-  } else if (getAdminToken()) {
-    btn.textContent = '管理';
-    btn.classList.remove('is-on');
-    $('#f-admin-box').hidden = false;
-  }
-}
-
-function toggleAdmin() {
-  const box = $('#f-admin-box');
-  if (isAdmin) {
-    localStorage.removeItem(ADMIN_KEY);
-    isAdmin = false;
-    box.hidden = false;
-    $('#f-admin-btn').textContent = '管理';
-    $('#f-admin-btn').classList.remove('is-on');
-    fetchMessages();
+function submitPass(v) {
+  if (!v) return;
+  const hit = FRIENDS.find((f) => f.pass === v);
+  if (hit) {
+    localStorage.setItem(PASS_KEY, JSON.stringify({ key: hit.key }));
+    hint('已识别为朋友，欢迎回来', 'is-ok');
     return;
   }
-  box.hidden = !box.hidden;
-  if (!box.hidden) $('#f-admin-pass').focus();
-}
-
-function submitAdmin() {
-  const pass = $('#f-admin-pass').value.trim();
-  if (!pass) return;
-  localStorage.setItem(ADMIN_KEY, pass);
-  $('#f-admin-pass').value = '';
-  fetchMessages();
+  localStorage.setItem(ADMIN_KEY, v);
+  fetchMessages().then((ok) => {
+    if (ok) {
+      hint('已进入管理模式', 'is-ok');
+    } else {
+      localStorage.removeItem(ADMIN_KEY);
+      isAdmin = false;
+      renderWall();
+      hint('口令不对哦', 'is-err');
+    }
+  });
 }
 
 /* ---------- 模态框开关 ---------- */
@@ -400,6 +416,8 @@ function openFriend() {
 function closeFriend() {
   $('#modal-friend').setAttribute('data-open', 'false');
   document.body.style.overflow = '';
+  const box = $('#f-pass-box');
+  if (box) box.hidden = true;
 }
 
 /* ---------- 初始化 ---------- */
@@ -457,24 +475,28 @@ function init() {
     }
   });
 
-  /* 好友口令：匹配到对应好友则记住（只存内部标识） */
+  /* 统一口令入口：右下角小按钮，展开输入框 */
+  const passToggle = $('#f-pass-toggle');
+  const passBox = $('#f-pass-box');
+  if (passToggle && passBox) {
+    passToggle.addEventListener('click', () => {
+      passBox.hidden = !passBox.hidden;
+      if (!passBox.hidden) $('#f-pass-input').focus();
+    });
+  }
   $('#f-pass-input').addEventListener('change', (e) => {
     const v = e.target.value.trim();
-    if (!FRIENDS.length) { hint('朋友口令尚未开放', 'is-err'); return; }
-    const hit = FRIENDS.find((f) => f.pass === v);
-    if (hit) {
-      localStorage.setItem(PASS_KEY, JSON.stringify({ key: hit.key }));
-      hint('已识别为朋友，欢迎回来', 'is-ok');
-    } else {
-      hint('口令不对哦', 'is-err');
-    }
+    e.target.value = '';
+    if (passBox) passBox.hidden = true;
+    submitPass(v);
   });
-
-  /* 管理 */
-  $('#f-admin-btn').addEventListener('click', toggleAdmin);
-  $('#f-admin-ok').addEventListener('click', submitAdmin);
-  $('#f-admin-pass').addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') submitAdmin();
+  $('#f-pass-input').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      const v = e.target.value.trim();
+      e.target.value = '';
+      if (passBox) passBox.hidden = true;
+      submitPass(v);
+    }
   });
 
   fetchMessages();

@@ -2,7 +2,7 @@
  * UI 渲染层：负责所有 DOM 操作（消息、打字指示器、流式气泡、状态栏）。
  * 不包含业务逻辑，只提供渲染与交互原语。
  */
-import { CONFIG } from './config.js?v=20261012';
+import { CONFIG } from './config.js?v=20261013';
 
 const dom = {
   messages: document.getElementById('messages'),

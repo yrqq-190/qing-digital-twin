@@ -16,6 +16,7 @@
 
 const express = require('express');
 const cloud = require('@cloudbase/node-sdk');
+const crypto = require('crypto');
 
 const app = express();
 const PORT = 9000; // HTTP 云函数固定监听端口（勿改）
@@ -271,14 +272,15 @@ app.post('/api/messages', async (req, res) => {
   }
   const createdAt = Date.now();
   const id = String(createdAt) + String(Math.floor(Math.random() * 1000));
+  const editToken = crypto.randomBytes(12).toString('hex');
   try {
     await db.collection(MSG_COLLECTION).add({
       id, name: n, content: c,
       image: image ? String(image).slice(0, 2 * 1024 * 1024) : null,
       visibility: visibility === 'private' ? 'private' : 'public',
-      createdAt
+      createdAt, editToken
     });
-    res.json({ ok: true, id });
+    res.json({ ok: true, id, editToken });
   } catch (e) {
     console.error('messages add error:', e && e.message);
     res.status(500).json({ error: `留言保存失败：${e && e.message}` });
@@ -286,13 +288,15 @@ app.post('/api/messages', async (req, res) => {
 });
 
 app.delete('/api/messages', async (req, res) => {
-  if (!checkWriteAuth(req)) return res.status(401).json({ error: '写入口令错误。' });
   const id = req.query.id;
   if (!id) return res.status(400).json({ error: '缺少留言 id。' });
+  const reqToken = req.query.editToken || '';
   try {
     const res2 = await db.collection(MSG_COLLECTION).where({ id }).get();
     const doc = res2.data && res2.data[0];
     if (!doc) return res.status(404).json({ error: '留言不存在。' });
+    const authed = checkWriteAuth(req) || (reqToken && doc.editToken && reqToken === doc.editToken);
+    if (!authed) return res.status(401).json({ error: '没有权限删除这条留言。' });
     await db.collection(MSG_COLLECTION).doc(doc._id).remove();
     res.json({ ok: true });
   } catch (e) {
@@ -302,10 +306,10 @@ app.delete('/api/messages', async (req, res) => {
 });
 
 app.patch('/api/messages', async (req, res) => {
-  if (!checkWriteAuth(req)) return res.status(401).json({ error: '写入口令错误。' });
   const id = req.query.id;
   if (!id) return res.status(400).json({ error: '缺少留言 id。' });
   const body = req.body || {};
+  const reqToken = (body && body.editToken) || req.query.editToken || '';
   const patch = {};
   if (body.name !== undefined) {
     const n = String(body.name).trim().slice(0, 20);
@@ -325,6 +329,8 @@ app.patch('/api/messages', async (req, res) => {
     const res2 = await db.collection(MSG_COLLECTION).where({ id }).get();
     const doc = res2.data && res2.data[0];
     if (!doc) return res.status(404).json({ error: '留言不存在。' });
+    const authed = checkWriteAuth(req) || (reqToken && doc.editToken && reqToken === doc.editToken);
+    if (!authed) return res.status(401).json({ error: '没有权限修改这条留言。' });
     await db.collection(MSG_COLLECTION).doc(doc._id).update(patch);
     res.json({ ok: true });
   } catch (e) {

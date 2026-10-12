@@ -6,7 +6,7 @@
  * - 模型名/温度/长度等参数虽可传，但服务端会做二次封顶；
  * - 后端不可用时抛出带 kind 的错误，由上层决定是否回退演示模式。
  */
-import { CONFIG } from './config.js?v=20261012';
+import { CONFIG } from './config.js?v=20261013';
 
 export class BackendError extends Error {
   constructor(kind, message) {
