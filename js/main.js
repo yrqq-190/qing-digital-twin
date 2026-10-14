@@ -2,8 +2,8 @@
  * 主流程入口：状态管理、事件绑定、发送/停止/清空/下载简历。
  * 分层：main（编排）→ api（模型通信）→ ui（渲染）→ store（持久化）。
  */
-import { CONFIG } from './config.js?v=20261023';
-import { SYSTEM_PROMPT, matchLocalReply, GREETING } from './persona.js?v=20261023';
+import { CONFIG } from './config.js?v=20261024';
+import { SYSTEM_PROMPT, matchLocalReply, GREETING } from './persona.js?v=20261024';
 import { renderMarkdown } from './markdown.js';
 import { loadHistory, saveHistory, clearHistory } from './store.js';
 import { callBackend } from './api.js';
@@ -104,18 +104,47 @@ async function produceReply(userText) {
 
   const stream = ui.mountStreamBubble();
   let acc = '';
+  let flushedLen = 0;
+  const SENT_END = /[。！？；\n!?;]/;
+  const BUBBLE_GAP = 1500; // 每个气泡之间的停顿（毫秒），调慢
+  let nextFlushAt = 0;
+
+  /* 流式期间按句实时固化：句末插一个气泡在流式壳前，停顿期内不固化 */
+  const pumpSentences = () => {
+    const now = Date.now();
+    while (true) {
+      const rest = acc.slice(flushedLen);
+      if (!rest) break;
+      if (hasCodeBlock(acc)) break;
+      const m = SENT_END.exec(rest);
+      if (!m) break;
+      const end = flushedLen + m.index + 1;
+      const piece = acc.slice(flushedLen, end).trim();
+      if (!piece) { flushedLen = end; continue; }
+      if (now < nextFlushAt) break; // 停顿期，内容留在流式壳里继续打
+      stream.renderBefore(renderMarkdown(piece));
+      flushedLen = end;
+      nextFlushAt = Date.now() + BUBBLE_GAP;
+    }
+    const tail = acc.slice(flushedLen);
+    stream.update(tail.trim() ? renderMarkdown(tail) : '');
+  };
 
   try {
     await callBackend(buildPayload(), {
-      onToken: (delta) => {
-        acc += delta;
-        stream.update(renderMarkdown(acc));
-      },
+      onToken: (delta) => { acc += delta; pumpSentences(); },
       signal: state.abort.signal
     });
-    stream.flush();
+    nextFlushAt = 0; // 收尾不停顿，连续拆完剩余
+    pumpSentences();
+    const rest = acc.slice(flushedLen).trim();
+    if (rest) {
+      if (hasCodeBlock(acc)) stream.flush();
+      else splitReply(rest).forEach((c) => stream.renderBefore(renderMarkdown(c)));
+    }
+    stream.remove();
     ui.setStatus('online');
-    return { text: acc, keepBubble: true, stream };
+    return { text: acc, consumed: !hasCodeBlock(acc) };
   } catch (err) {
     if (state.manuallyStopped) {
       stream.remove();
@@ -123,9 +152,16 @@ async function produceReply(userText) {
       return null;
     }
     if (acc.trim()) {
-      stream.flush();
+      nextFlushAt = 0;
+      pumpSentences();
+      const rest = acc.slice(flushedLen).trim();
+      if (rest) {
+        if (hasCodeBlock(acc)) stream.flush();
+        else splitReply(rest).forEach((c) => stream.renderBefore(renderMarkdown(c)));
+      }
+      stream.remove();
       ui.renderNote('连接中断，以上是已生成的部分内容。');
-      return { text: acc, keepBubble: true, stream };
+      return { text: acc, consumed: !hasCodeBlock(acc) };
     }
     stream.remove();
     if (CONFIG.DEMO_FALLBACK) {
@@ -210,14 +246,7 @@ async function handleSend(rawText) {
   }
 
   if (reply) {
-    if (reply.keepBubble && reply.stream) {
-      reply.stream.flush();
-      if (splitReply(reply.text).length > 1) {
-        // 内容较多：收起流式气泡，拆成多条连续消息更像真人
-        reply.stream.remove();
-        await renderAssistantReply(reply.text);
-      }
-    } else {
+    if (!reply.consumed) {
       await renderAssistantReply(reply.text);
     }
     pushHistory('assistant', reply.text);
