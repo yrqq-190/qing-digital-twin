@@ -2,8 +2,8 @@
  * 主流程入口：状态管理、事件绑定、发送/停止/清空/下载简历。
  * 分层：main（编排）→ api（模型通信）→ ui（渲染）→ store（持久化）。
  */
-import { CONFIG } from './config.js?v=20261017';
-import { SYSTEM_PROMPT, matchLocalReply, GREETING } from './persona.js?v=20261017';
+import { CONFIG } from './config.js?v=20261018';
+import { SYSTEM_PROMPT, matchLocalReply, GREETING } from './persona.js?v=20261018';
 import { renderMarkdown } from './markdown.js';
 import { loadHistory, saveHistory, clearHistory } from './store.js';
 import { callBackend } from './api.js';
@@ -106,8 +106,9 @@ async function produceReply(userText) {
   let acc = '';
   let flushedLen = 0;
   const SENT_END = /[。！？；\n!?;]/;
+  const MIN_FLUSH = 36; // 凑够约 36 字或两句才固化一个气泡，避免一句一气泡太碎
 
-  /* 流式期间按句实时固化：遇到句末就生成一个独立气泡，stream 气泡只留未完成的半句 */
+  /* 流式期间按句实时固化：短句攒两句、长句到句末，stream 气泡只留未完成的半句 */
   const pumpSentences = () => {
     while (true) {
       const rest = acc.slice(flushedLen);
@@ -116,8 +117,12 @@ async function produceReply(userText) {
       const m = SENT_END.exec(rest);
       if (!m) break;
       const end = flushedLen + m.index + 1;
-      const piece = acc.slice(flushedLen, end).trim();
-      if (piece) ui.renderMessage('assistant', renderMarkdown(piece));
+      const piece = acc.slice(flushedLen, end);
+      const sentenceCount = (piece.match(/[。！？；\n!?;]/g) || []).length;
+      // 不够长度且不到两句：继续攒，等下一句一起出
+      if (piece.trim().length < MIN_FLUSH && sentenceCount < 2) break;
+      const pieceTrim = piece.trim();
+      if (pieceTrim) ui.renderMessage('assistant', renderMarkdown(pieceTrim));
       flushedLen = end;
     }
     const tail = acc.slice(flushedLen);
