@@ -2,8 +2,8 @@
  * 主流程入口：状态管理、事件绑定、发送/停止/清空/下载简历。
  * 分层：main（编排）→ api（模型通信）→ ui（渲染）→ store（持久化）。
  */
-import { CONFIG } from './config.js?v=20261020';
-import { SYSTEM_PROMPT, matchLocalReply, GREETING } from './persona.js?v=20261020';
+import { CONFIG } from './config.js?v=20261021';
+import { SYSTEM_PROMPT, matchLocalReply, GREETING } from './persona.js?v=20261021';
 import { renderMarkdown } from './markdown.js';
 import { loadHistory, saveHistory, clearHistory } from './store.js';
 import { callBackend } from './api.js';
@@ -148,6 +148,7 @@ async function produceReply(userText) {
       },
       signal: state.abort.signal
     });
+    nextFlushAt = 0; // 收尾时跳过停顿，连续拆完剩余，避免长文本闪一帧
     pumpSentences();
     // 收尾：剩余部分按句拆成多个气泡（兜底数据一次性到达的情况）
     const rest = acc.slice(flushedLen).trim();
@@ -168,6 +169,7 @@ async function produceReply(userText) {
       return null;
     }
     if (acc.trim()) {
+      nextFlushAt = 0;
       pumpSentences();
       const rest = acc.slice(flushedLen).trim();
       if (rest) {
