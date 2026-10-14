@@ -2,7 +2,7 @@
  * UI 渲染层：负责所有 DOM 操作（消息、打字指示器、流式气泡、状态栏）。
  * 不包含业务逻辑，只提供渲染与交互原语。
  */
-import { CONFIG } from './config.js?v=20261015';
+import { CONFIG } from './config.js?v=20261022';
 
 const dom = {
   messages: document.getElementById('messages'),
@@ -128,6 +128,15 @@ export function mountStreamBubble() {
     },
     /** 立即把最新内容渲染完成 */
     flush,
+    /** 在流式壳之前插入一条已固化的 AI 气泡（保证顺序正确） */
+    renderBefore(mdHtml) {
+      const r = document.createElement('div');
+      r.className = 'row';
+      r.innerHTML = '<div class="ai-avatar" aria-hidden="true">Q</div><div class="bubble-ai"></div>';
+      r.querySelector('.bubble-ai').innerHTML = mdHtml;
+      dom.messages.insertBefore(r, row);
+      scrollToBottom();
+    },
     /** 移除该气泡（停止/失败回退时） */
     remove() {
       if (stream.timer) clearTimeout(stream.timer);

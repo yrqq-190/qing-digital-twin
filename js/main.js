@@ -2,8 +2,8 @@
  * 主流程入口：状态管理、事件绑定、发送/停止/清空/下载简历。
  * 分层：main（编排）→ api（模型通信）→ ui（渲染）→ store（持久化）。
  */
-import { CONFIG } from './config.js?v=20261021';
-import { SYSTEM_PROMPT, matchLocalReply, GREETING } from './persona.js?v=20261021';
+import { CONFIG } from './config.js?v=20261022';
+import { SYSTEM_PROMPT, matchLocalReply, GREETING } from './persona.js?v=20261022';
 import { renderMarkdown } from './markdown.js';
 import { loadHistory, saveHistory, clearHistory } from './store.js';
 import { callBackend } from './api.js';
@@ -131,7 +131,7 @@ async function produceReply(userText) {
       // 还在上一个气泡的停顿期：内容留在 stream 气泡里继续攒，不固化
       if (now < nextFlushAt) break;
       const pieceTrim = piece.trim();
-      if (pieceTrim) ui.renderMessage('assistant', renderMarkdown(pieceTrim));
+      if (pieceTrim) stream.renderBefore(renderMarkdown(pieceTrim));
       flushedLen = end;
       searchFrom = end;
       nextFlushAt = Date.now() + BUBBLE_GAP;
@@ -156,7 +156,7 @@ async function produceReply(userText) {
       if (hasCodeBlock(acc)) {
         stream.flush();
       } else {
-        splitReply(rest).forEach((c) => ui.renderMessage('assistant', renderMarkdown(c)));
+        splitReply(rest).forEach((c) => stream.renderBefore(renderMarkdown(c)));
       }
     }
     stream.remove();
@@ -174,7 +174,7 @@ async function produceReply(userText) {
       const rest = acc.slice(flushedLen).trim();
       if (rest) {
         if (hasCodeBlock(acc)) stream.flush();
-        else splitReply(rest).forEach((c) => ui.renderMessage('assistant', renderMarkdown(c)));
+        else splitReply(rest).forEach((c) => stream.renderBefore(renderMarkdown(c)));
       }
       stream.remove();
       ui.renderNote('连接中断，以上是已生成的部分内容。');
