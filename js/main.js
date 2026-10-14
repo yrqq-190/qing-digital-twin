@@ -2,8 +2,8 @@
  * 主流程入口：状态管理、事件绑定、发送/停止/清空/下载简历。
  * 分层：main（编排）→ api（模型通信）→ ui（渲染）→ store（持久化）。
  */
-import { CONFIG } from './config.js?v=20261019';
-import { SYSTEM_PROMPT, matchLocalReply, GREETING } from './persona.js?v=20261019';
+import { CONFIG } from './config.js?v=20261020';
+import { SYSTEM_PROMPT, matchLocalReply, GREETING } from './persona.js?v=20261020';
 import { renderMarkdown } from './markdown.js';
 import { loadHistory, saveHistory, clearHistory } from './store.js';
 import { callBackend } from './api.js';
@@ -110,25 +110,30 @@ async function produceReply(userText) {
   const BUBBLE_GAP = 850; // 气泡之间的停顿（毫秒），模拟真人打字节奏
   let nextFlushAt = 0;
 
-  /* 流式期间按句实时固化：短句攒两句、长句到句末，气泡之间留停顿 */
+  /* 流式期间按句实时固化：短句攒够长度、长句到句末，气泡之间留停顿 */
   const pumpSentences = () => {
     const now = Date.now();
+    let searchFrom = flushedLen;
     while (true) {
-      const rest = acc.slice(flushedLen);
+      const rest = acc.slice(searchFrom);
       if (!rest) break;
       if (hasCodeBlock(acc)) break; // 含代码块不拆，整段渲染
       const m = SENT_END.exec(rest);
       if (!m) break;
-      const end = flushedLen + m.index + 1;
+      const end = searchFrom + m.index + 1;
       const piece = acc.slice(flushedLen, end);
       const sentenceCount = (piece.match(/[。！？；\n!?;]/g) || []).length;
-      // 不够长度且不到两句：继续攒，等下一句一起出
-      if (piece.trim().length < MIN_FLUSH && sentenceCount < 2) break;
+      // 不够长度且不到两句：继续找下一个句末累计，不退出
+      if (piece.trim().length < MIN_FLUSH && sentenceCount < 2) {
+        searchFrom = end;
+        continue;
+      }
       // 还在上一个气泡的停顿期：内容留在 stream 气泡里继续攒，不固化
       if (now < nextFlushAt) break;
       const pieceTrim = piece.trim();
       if (pieceTrim) ui.renderMessage('assistant', renderMarkdown(pieceTrim));
       flushedLen = end;
+      searchFrom = end;
       nextFlushAt = Date.now() + BUBBLE_GAP;
     }
     const tail = acc.slice(flushedLen);
@@ -144,10 +149,15 @@ async function produceReply(userText) {
       signal: state.abort.signal
     });
     pumpSentences();
-    // 收尾：把剩下的半句固化成最后一个气泡，去掉流式壳
+    // 收尾：剩余部分按句拆成多个气泡（兜底数据一次性到达的情况）
     const rest = acc.slice(flushedLen).trim();
-    if (rest && !hasCodeBlock(acc)) ui.renderMessage('assistant', renderMarkdown(rest));
-    else if (rest) stream.flush();
+    if (rest) {
+      if (hasCodeBlock(acc)) {
+        stream.flush();
+      } else {
+        splitReply(rest).forEach((c) => ui.renderMessage('assistant', renderMarkdown(c)));
+      }
+    }
     stream.remove();
     ui.setStatus('online');
     return { text: acc, consumed: !hasCodeBlock(acc) };
@@ -158,10 +168,13 @@ async function produceReply(userText) {
       return null;
     }
     if (acc.trim()) {
+      pumpSentences();
       const rest = acc.slice(flushedLen).trim();
-      if (rest && !hasCodeBlock(acc)) ui.renderMessage('assistant', renderMarkdown(rest));
-      else stream.flush();
-      if (rest) stream.remove();
+      if (rest) {
+        if (hasCodeBlock(acc)) stream.flush();
+        else splitReply(rest).forEach((c) => ui.renderMessage('assistant', renderMarkdown(c)));
+      }
+      stream.remove();
       ui.renderNote('连接中断，以上是已生成的部分内容。');
       return { text: acc, consumed: !hasCodeBlock(acc) };
     }
